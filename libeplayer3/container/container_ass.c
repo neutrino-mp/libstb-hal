@@ -398,6 +398,8 @@ static void ASSThread(Context_t *context) {
             //       subtitel zeitpunkt zu bestimmen und solange zu schlafen.
 #ifdef MARTII
             usleep(10000);
+	    if(!context->playback->mayWriteToFramebuffer)
+		continue;
             getMutex(__LINE__);
 	    checkRegions();
 #else
@@ -561,7 +563,7 @@ static void ASSThread(Context_t *context) {
 
     ass_printf(10, "terminating\n");
 #ifdef MARTII
-pthread_exit(NULL);
+    pthread_exit(NULL);
 #endif
 }
 
