@@ -435,7 +435,7 @@ void VDec::ShowPicture(const char * fname)
 	mfd = open(destname, O_RDONLY);
 	if (mfd < 0)
 	{
-		lt_info("%s cannot open %s: %m", __func__, destname);
+		lt_info("%s cannot open %s: %m\n", __func__, destname);
 		goto out;
 	}
 	fstat(mfd, &st);
@@ -449,7 +449,7 @@ void VDec::ShowPicture(const char * fname)
 
 		if (ioctl(fd, VIDEO_SET_FORMAT, VIDEO_FORMAT_16_9) < 0)
 			lt_info("%s: VIDEO_SET_FORMAT failed (%m)\n", __func__);
-		char *iframe = (char *)malloc((st.st_size < 8192) ? 8192 : st.st_size);
+		char *iframe = (char *)malloc(st.st_size);
 		if (! iframe)
 		{
 			lt_info("%s: malloc failed (%m)\n", __func__);
