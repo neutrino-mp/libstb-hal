@@ -393,8 +393,6 @@ void cVideo::ShowPicture(const char * fname)
 void VDec::ShowPicture(const char * fname)
 {
 	lt_debug("%s(%s)\n", __func__, fname);
-	static const unsigned char pes_header[] = { 0x00, 0x00, 0x01, 0xE0, 0x00, 0x00, 0x80, 0x00, 0x00 };
-	static const unsigned char seq_end[] = { 0x00, 0x00, 0x01, 0xB7 };
 	char destname[512];
 	char cmd[512];
 	char *p;
@@ -451,30 +449,17 @@ void VDec::ShowPicture(const char * fname)
 
 		if (ioctl(fd, VIDEO_SET_FORMAT, VIDEO_FORMAT_16_9) < 0)
 			lt_info("%s: VIDEO_SET_FORMAT failed (%m)\n", __func__);
-		bool seq_end_avail = false;
-		size_t pos=0;
-		unsigned char *iframe = (unsigned char *)malloc((st.st_size < 8192) ? 8192 : st.st_size);
+		char *iframe = (char *)malloc((st.st_size < 8192) ? 8192 : st.st_size);
 		if (! iframe)
 		{
 			lt_info("%s: malloc failed (%m)\n", __func__);
 			goto out;
 		}
 		read(mfd, iframe, st.st_size);
-		ioctl(fd, VIDEO_SELECT_SOURCE, VIDEO_SOURCE_MEMORY);
-		ioctl(fd, VIDEO_PLAY);
-		ioctl(fd, VIDEO_CONTINUE);
-		ioctl(fd, VIDEO_CLEAR_BUFFER);
-		while (pos <= (st.st_size-4) && !(seq_end_avail = (!iframe[pos] && !iframe[pos+1] && iframe[pos+2] == 1 && iframe[pos+3] == 0xB7)))
-			++pos;
-
-		if ((iframe[3] >> 4) != 0xE) // no pes header
-			write(fd, pes_header, sizeof(pes_header));
-		write(fd, iframe, st.st_size);
-		if (!seq_end_avail)
-			write(fd, seq_end, sizeof(seq_end));
-		memset(iframe, 0, 8192);
-		write(fd, iframe, 8192);
-		ioctl(fd, VIDEO_SELECT_SOURCE, VIDEO_SOURCE_DEMUX);
+		fop(ioctl, VIDEO_PLAY);
+		fop(ioctl, VIDEO_CONTINUE);
+		video_still_picture sp = { iframe, st.st_size };
+		fop(ioctl, VIDEO_STILLPICTURE, &sp);
 		free(iframe);
 	}
  out:
