@@ -37,6 +37,7 @@
 #include <asm/types.h>
 #include <pthread.h>
 #include <errno.h>
+#include <sys/uio.h>
 
 #include "common.h"
 #include "output.h"
@@ -130,21 +131,12 @@ static int writeData(void* _call)
 
     HeaderLength                           += PrivateHeaderLength;
 
-		unsigned char *PacketData = malloc(HeaderLength + call->len);
-
-		if(PacketData != NULL)
-		{
-      memcpy(PacketData, PesHeader, HeaderLength);
-      memcpy(PacketData + HeaderLength, call->data, call->len);
-
-      len = write(call->fd, PacketData, call->len + HeaderLength);
-
-      free(PacketData);
-		}
-		else
-		{
-			h263_err("no mem\n");
-		}
+    struct iovec iov[2];
+    iov[0].iov_base = PesHeader;
+    iov[0].iov_len = HeaderLength;
+    iov[1].iov_base = call->data;
+    iov[1].iov_len = call->len;
+    len = writev(call->fd, iov, 2);
 
     h263_printf(10, "< len %d\n", len);
     return len;
