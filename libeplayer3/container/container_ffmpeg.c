@@ -36,21 +36,17 @@
 #include <errno.h>
 #include <sys/poll.h>
 #include <pthread.h>
-#ifdef MARTII
 #include <sys/prctl.h>
-#endif
 
 #include <libavutil/avutil.h>
 #include <libavformat/avformat.h>
-#ifdef MARTII
 #define USE_LIBSWRESAMPLE
-# ifdef USE_LIBSWRESAMPLE
-#  include <libswresample/swresample.h>
-# else
-#  include <libavresample/avresample.h>
-# endif
-# include <libavutil/opt.h>
+#ifdef USE_LIBSWRESAMPLE
+# include <libswresample/swresample.h>
+#else
+# include <libavresample/avresample.h>
 #endif
+#include <libavutil/opt.h>
 
 #include "common.h"
 #include "misc.h"
@@ -114,17 +110,13 @@ static AVFormatContext*   avContext = NULL;
 
 static unsigned char isContainerRunning = 0;
 
-#ifdef MARTII
 long long int latestPts = 0;
-#else
-static long long int latestPts = 0;
-#endif
 
 /* ***************************** */
 /* Prototypes                    */
 /* ***************************** */
 static int container_ffmpeg_seek_bytes(off_t pos);
-static int container_ffmpeg_seek(Context_t *context, float sec);
+static int container_ffmpeg_seek(Context_t *context, float sec, int absolute);
 static int container_ffmpeg_seek_rel(Context_t *context, off_t pos, long long int pts, float sec);
 static int container_ffmpeg_seek_bytes_rel(off_t start, off_t bytes);
 
@@ -148,9 +140,7 @@ void releaseMutex(const char *filename, const const char *function, int line) {
 
 static char* Codec2Encoding(enum CodecID id, int* version)
 {
-#ifdef MARTII
     fprintf(stderr, "Codec ID: %.8lx\n", (long)id);
-#endif
     switch (id)
     {
     case CODEC_ID_MPEG1VIDEO:
@@ -201,7 +191,7 @@ static char* Codec2Encoding(enum CodecID id, int* version)
     case CODEC_ID_MP3:
         return "A_MP3";
     case CODEC_ID_AAC:
-#ifdef MARTII
+#if 1
         return "A_IPCM";
 #else
         return "A_AAC";
@@ -213,7 +203,7 @@ static char* Codec2Encoding(enum CodecID id, int* version)
     case CODEC_ID_WMAV1:
     case CODEC_ID_WMAV2:
     case 86056: //CODEC_ID_WMAPRO
-#ifdef MARTII
+#if 1
         return "A_IPCM";
 #else
         return "A_WMA";
@@ -233,7 +223,7 @@ static char* Codec2Encoding(enum CodecID id, int* version)
 #else
     case CODEC_ID_PCM_S16LE:
 #endif
-#ifdef MARTII
+#if 1
         return "A_IPCM";
 #else
 	return "A_PCM";
@@ -352,14 +342,11 @@ static char* searchMeta(AVDictionary * metadata, char* ourTag)
 /* **************************** */
 
 static void FFMPEGThread(Context_t *context) {
-#ifdef MARTII
     char threadname[17];
     strncpy(threadname, __func__, sizeof(threadname));
     threadname[16] = 0;
     prctl (PR_SET_NAME, (unsigned long)&threadname);
-#endif
     AVPacket   packet;
-    off_t currentReadPosition = 0; /* last read position */
     off_t lastReverseSeek = 0;     /* max address to read before seek again in reverse play */
     off_t lastSeek = -1;
     long long int lastPts = -1, currentVideoPts = -1, currentAudioPts = -1, showtime = 0, bofcount = 0;
@@ -369,7 +356,6 @@ static void FFMPEGThread(Context_t *context) {
     int           err = 0, gotlastPts = 0, audioMute = 0;
     AudioVideoOut_t avOut;
 
-#ifdef MARTII
 #ifdef USE_LIBSWRESAMPLE
     SwrContext *swr = NULL;
 #else
@@ -378,11 +364,6 @@ static void FFMPEGThread(Context_t *context) {
     AVFrame *decoded_frame = NULL;
     int out_sample_rate = 44100;
     uint64_t out_channel_layout = AV_CH_LAYOUT_STEREO;
-#else
-    /* Softdecoding buffer*/
-    unsigned char *samples = NULL;
-#endif
-
 
     ffmpeg_printf(10, "\n");
 
@@ -433,11 +414,7 @@ static void FFMPEGThread(Context_t *context) {
 	      }
 
 
-#ifdef MARTII
 	      if((err = container_ffmpeg_seek_rel(context, lastSeek, lastPts, (float) context->playback->Speed * 15)) < 0)
-#else
-	      if((err = container_ffmpeg_seek_rel(context, lastSeek, lastPts, (float) context->playback->Speed)) < 0)
-#endif
 	      {
 		  ffmpeg_err( "Error seeking\n");
 
@@ -539,18 +516,12 @@ static void FFMPEGThread(Context_t *context) {
 	    Track_t * videoTrack = NULL;
 	    Track_t * audioTrack = NULL;
 	    Track_t * subtitleTrack = NULL;
-#ifdef MARTII
+
 	    Track_t * dvbsubtitleTrack = NULL;
 	    Track_t * teletextTrack = NULL;
 #endif
 
-	    int index = packet.stream_index;
-
-#if LIBAVCODEC_VERSION_MAJOR < 54
-	    currentReadPosition = url_ftell(avContext->pb);
-#else
-	    currentReadPosition = avio_tell(avContext->pb);
-#endif
+	    int ix = packet.stream_index;
 
 	    if (context->manager->video->Command(context, MANAGER_GET_TRACK, &videoTrack) < 0)
 		ffmpeg_err("error getting video track\n");
@@ -560,18 +531,17 @@ static void FFMPEGThread(Context_t *context) {
 
 	    if (context->manager->subtitle->Command(context, MANAGER_GET_TRACK, &subtitleTrack) < 0)
 		ffmpeg_err("error getting subtitle track\n");
-#ifdef MARTII
+
 	    if (context->manager->dvbsubtitle->Command(context, MANAGER_GET_TRACK, &dvbsubtitleTrack) < 0)
 		ffmpeg_err("error getting dvb subtitle track\n");
 
 	    if (context->manager->teletext->Command(context, MANAGER_GET_TRACK, &teletextTrack) < 0)
 		ffmpeg_err("error getting teletext track\n");
-#endif
 
-	    ffmpeg_printf(200, "packet.size %d - index %d\n", packet.size, index);
+	    ffmpeg_printf(200, "packet.size %d - index %d\n", packet.size, ix);
 
 	    if (videoTrack != NULL) {
-		if (videoTrack->Id == index) {
+		if (videoTrack->Id == ix) {
 		    currentVideoPts = videoTrack->pts = pts = calcPts(videoTrack->stream, &packet);
 
 		    if ((currentVideoPts > latestPts) && (currentVideoPts != INVALID_PTS_VALUE))
@@ -585,7 +555,7 @@ static void FFMPEGThread(Context_t *context) {
 		    }
 #endif
 
-		    ffmpeg_printf(200, "VideoTrack index = %d %lld\n",index, currentVideoPts);
+		    ffmpeg_printf(200, "VideoTrack index = %d %lld\n",ix, currentVideoPts);
 
 		    avOut.data       = packet.data;
 		    avOut.len        = packet.size;
@@ -605,7 +575,7 @@ static void FFMPEGThread(Context_t *context) {
 	    }
 
 	    if (audioTrack != NULL) {
-		if (audioTrack->Id == index) {
+		if (audioTrack->Id == ix) {
 		    currentAudioPts = audioTrack->pts = pts = calcPts(audioTrack->stream, &packet);
 
 		    if ((currentAudioPts > latestPts) && (!videoTrack))
@@ -619,7 +589,7 @@ static void FFMPEGThread(Context_t *context) {
 		    }
 #endif
 
-		    ffmpeg_printf(200, "AudioTrack index = %d\n",index);
+		    ffmpeg_printf(200, "AudioTrack index = %d\n",ix);
                     if (audioTrack->inject_raw_pcm == 1){
                         ffmpeg_printf(200,"write audio raw pcm\n");
 
@@ -651,7 +621,6 @@ static void FFMPEGThread(Context_t *context) {
 
 		    else if (audioTrack->inject_as_pcm == 1)
 		    {
-#ifdef MARTII
 			AVCodecContext *c = ((AVStream*)(audioTrack->stream))->codec;
 			AVPacket avpkt = packet;
 
@@ -696,13 +665,11 @@ static void FFMPEGThread(Context_t *context) {
 #else
 					avr = avresample_alloc_context();
 #endif
-
-#if 1
 					if (c->channel_layout == 0) {
 						// FIXME -- need to guess, looks pretty much like a bug in the FFMPEG WMA decoder
 						c->channel_layout = AV_CH_LAYOUT_STEREO;
 					}
-#endif
+
 					out_channel_layout = c->channel_layout;
 					// player2 won't play mono
 					out_channel_layout = (c->channel_layout == AV_CH_LAYOUT_MONO) ? AV_CH_LAYOUT_STEREO : c->channel_layout;
@@ -793,58 +760,6 @@ static void FFMPEGThread(Context_t *context) {
 					ffmpeg_err("writing data to audio device failed\n");
 				av_freep(&output);
 			}
-#else
-			int      bytesDone = 0;
-			unsigned int samples_size = AVCODEC_MAX_AUDIO_FRAME_SIZE;
-			AVPacket avpkt;
-			avpkt = packet;
-
-			// This way the buffer is only allocated if we really need it
-			if(samples == NULL)
-			    samples = (unsigned char *)malloc(samples_size);
-
-			while(avpkt.size > 0)
-			{
-			    int decoded_data_size = samples_size;
-
-			    bytesDone = avcodec_decode_audio3(( (AVStream*) audioTrack->stream)->codec,
-				(short *)(samples), &decoded_data_size, &avpkt);
-
-
-			    if(bytesDone < 0) // Error Happend
-				break;
-
-			    avpkt.data += bytesDone;
-			    avpkt.size -= bytesDone;
-
-			    if(decoded_data_size <= 0)
-				continue;
-
-			    pcmPrivateData_t extradata;
-			    extradata.uNoOfChannels = ((AVStream*) audioTrack->stream)->codec->channels;
-			    extradata.uSampleRate = ((AVStream*) audioTrack->stream)->codec->sample_rate;
-			    extradata.uBitsPerSample = 16;
-			    extradata.bLittleEndian = 1;
-
-			    avOut.data       = samples;
-			    avOut.len        = decoded_data_size;
-
-			    avOut.pts        = pts;
-			    avOut.extradata  = &extradata;
-			    avOut.extralen   = sizeof(extradata);
-			    avOut.frameRate  = 0;
-			    avOut.timeScale  = 0;
-			    avOut.width      = 0;
-			    avOut.height     = 0;
-			    avOut.type       = "audio";
-
-#ifdef reverse_playback_3
-			    if (!context->playback->BackWard)
-#endif
-			    if (context->output->audio->Write(context, &avOut) < 0)
-				ffmpeg_err("writing data to audio device failed\n");
-			}
-#endif
 		    }
 		    else if (audioTrack->have_aacheader == 1)
 		    {
@@ -895,7 +810,7 @@ static void FFMPEGThread(Context_t *context) {
 	    }
 
 	    if (subtitleTrack != NULL) {
-		if (subtitleTrack->Id == index) {
+		if (subtitleTrack->Id == ix) {
 		    float duration=3.0;
 		    ffmpeg_printf(100, "subtitleTrack->stream %p \n", subtitleTrack->stream);
 
@@ -908,7 +823,7 @@ static void FFMPEGThread(Context_t *context) {
 		    ffmpeg_printf(20, "Packet duration %d\n", packet.duration);
 		    ffmpeg_printf(20, "Packet convergence_duration %lld\n", packet.convergence_duration);
 
-		    if(packet.duration != 0 && packet.duration != AV_NOPTS_VALUE )
+		    if(packet.duration != 0) // FIXME: packet.duration is 32 bit, AV_NOPTS_VALUE is 64 bit --martii
 			duration=((float)packet.duration)/1000.0;
 		    else if(packet.convergence_duration != 0 && packet.convergence_duration != AV_NOPTS_VALUE )
 			duration=((float)packet.convergence_duration)/1000.0;
@@ -991,7 +906,7 @@ static void FFMPEGThread(Context_t *context) {
 			    SubtitleData_t data;
 			    data.data      = line;
 			    data.len       = strlen((char*)line);
-			    data.extradata = DEFAULT_ASS_HEAD;
+			    data.extradata = (unsigned char *) DEFAULT_ASS_HEAD;
 			    data.extralen  = strlen(DEFAULT_ASS_HEAD);
 			    data.pts       = pts;
 			    data.duration  = duration;
@@ -1002,7 +917,6 @@ static void FFMPEGThread(Context_t *context) {
 		    } /* duration */
 		}
 	    }
-#ifdef MARTII
 	    if (dvbsubtitleTrack != NULL) {
 		if (dvbsubtitleTrack->Id == index) {
 		    currentDvbsubtitlePts = dvbsubtitleTrack->pts = pts = calcPts(dvbsubtitleTrack->stream, &packet);
@@ -1049,7 +963,6 @@ static void FFMPEGThread(Context_t *context) {
 		    }
 		}
 	    }
-#endif
 
 	    if (packet.data)
 	       av_free_packet(&packet);
@@ -1064,23 +977,15 @@ static void FFMPEGThread(Context_t *context) {
 
     } /* while */
 
-#ifdef MARTII
-# ifdef USE_LIBSWRESAMPLE
+#ifdef USE_LIBSWRESAMPLE
     if (swr) {
 	swr_free(&swr);
     }
-# else
+#else
     if (avr) {
 	avresample_close(avr);
 	avresample_free(&avr);
 	avcodec_free_frame(&decoded_frame);
-    }
-# endif
-#else
-    // Freeing the allocated buffer for softdecoding
-    if (samples != NULL) {
-	free(samples);
-	samples = NULL;
     }
 #endif
 
@@ -1092,22 +997,18 @@ static void FFMPEGThread(Context_t *context) {
 /* **************************** */
 /* Container part for ffmpeg    */
 /* **************************** */
-#ifdef MARTII
+
 static int terminating = 0;
 static int interrupt_cb(void *ctx)
 {
 	PlaybackHandler_t *p = (PlaybackHandler_t *)ctx;
 	return p->abortRequested;
 }
-#endif
+
 
 int container_ffmpeg_init(Context_t *context, char * filename)
 {
-#ifdef MARTII
     int err;
-#else
-    int n, err;
-#endif
 
     ffmpeg_printf(10, ">\n");
 
@@ -1136,15 +1037,13 @@ int container_ffmpeg_init(Context_t *context, char * filename)
     /* initialize ffmpeg */
     avcodec_register_all();
     av_register_all();
-#ifdef MARTII //TDT
+
     avformat_network_init();
-#endif
-#ifdef MARTII
+
     context->playback->abortRequested = 0;
     avContext = avformat_alloc_context();
     avContext->interrupt_callback.callback = interrupt_cb;
     avContext->interrupt_callback.opaque = context->playback;
-#endif
 
 #if LIBAVCODEC_VERSION_MAJOR < 54
     if ((err = av_open_input_file(&avContext, filename, NULL, 0, NULL)) != 0) {
@@ -1183,11 +1082,7 @@ int container_ffmpeg_init(Context_t *context, char * filename)
 	 * but the file is played back well. so remove this
 	 * until other works are done and we can prove this.
 	 */
-#ifdef MARTII
 	avformat_close_input(&avContext);
-#else
-	av_close_input_file(avContext);
-#endif
         //for buffered io
         ffmpeg_buf_free();
         //for buffered io (end)
@@ -1196,7 +1091,6 @@ int container_ffmpeg_init(Context_t *context, char * filename)
 #endif
     }
 
-#ifdef MARTII
     terminating = 0;
     latestPts = 0;
     isContainerRunning = 1;
@@ -1218,7 +1112,6 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 	    context->manager->dvbsubtitle->Command(context, MANAGER_DEL, NULL);
     if (context->manager->teletext)
 	    context->manager->teletext->Command(context, MANAGER_DEL, NULL);
-#endif
     ffmpeg_printf(20, "dump format\n");
 
 #if LIBAVCODEC_VERSION_MAJOR < 54
@@ -1321,14 +1214,7 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 
 		lang = av_dict_get(stream->metadata, "language", NULL, 0);
 
-#ifdef MARTII
 		track.Name = lang ? lang->value : "und";
-#else
-		if (lang)
-		   track.Name        = strdup(lang->value);
-		else
-		   track.Name        = strdup("und");
-#endif
 
 		ffmpeg_printf(10, "Language %s\n", track.Name);
 
@@ -1349,14 +1235,6 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 		    track.duration = (double) stream->duration * av_q2d(stream->time_base) * 1000.0;
 		}
 
-#ifndef MARTII
-		if(!strncmp(encoding, "A_PCM", 5))
-		{
-		    track.inject_raw_pcm = 1;
-		    ffmpeg_printf(10, " Handle inject_raw_pcm = %d\n", track.inject_as_pcm);
-		}
-		else
-#endif
 		if(!strncmp(encoding, "A_IPCM", 6))
 		{
 		    track.inject_as_pcm = 1;
@@ -1365,16 +1243,12 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 			AVCodec *codec = avcodec_find_decoder(stream->codec->codec_id);
 
 //( (AVStream*) audioTrack->stream)->codec->flags |= CODEC_FLAG_TRUNCATED;
-#ifdef MARTII
 			if(codec != NULL && !avcodec_open2(stream->codec, codec, NULL))
-#else
-			if(codec != NULL && !avcodec_open(stream->codec, codec))
-#endif
 			   printf("AVCODEC__INIT__SUCCESS\n");
 			else
 			   printf("AVCODEC__INIT__FAILED\n");
 		}
-#ifndef MARTII
+#if 0
 		else if(stream->codec->codec_id == CODEC_ID_AAC) {
 		    ffmpeg_printf(10,"Create AAC ExtraData\n");
 		    ffmpeg_printf(10,"stream->codec->extradata_size %d\n", stream->codec->extradata_size);
@@ -1427,11 +1301,7 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 
 		} else if(stream->codec->codec_id == CODEC_ID_WMAV1
 		    || stream->codec->codec_id == CODEC_ID_WMAV2
-#ifdef MARTII
 		    || stream->codec->codec_id == 86056 ) //CODEC_ID_WMAPRO) //if (stream->codec->extradata_size > 0)
-#else
-		    || 86056 ) //CODEC_ID_WMAPRO) //if (stream->codec->extradata_size > 0)
-#endif
 		{
 		    ffmpeg_printf(10,"Create WMA ExtraData\n");
 		    track.aacbuflen = 104 + stream->codec->extradata_size;
@@ -1544,14 +1414,7 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 
 	     lang = av_dict_get(stream->metadata, "language", NULL, 0);
 
-#ifdef MARTII
 	     track.Name = lang ? lang->value : "und";
-#else
-	     if (lang)
-		track.Name        = strdup(lang->value);
-	     else
-		track.Name        = strdup("und");
-#endif
 
 	    ffmpeg_printf(10, "Language %s\n", track.Name);
 
@@ -1583,11 +1446,8 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 		track.duration = (double) stream->duration * av_q2d(stream->time_base) * 1000.0;
 	    }
 
-#ifndef MARTII
-	    if (track.Name)
-#endif
-		ffmpeg_printf(10, "FOUND SUBTITLE %s\n", track.Name);
-#ifdef MARTII
+	    ffmpeg_printf(10, "FOUND SUBTITLE %s\n", track.Name);
+
 	    if (stream->codec->codec_id == CODEC_ID_DVB_TELETEXT && context->manager->teletext) {
 		ffmpeg_printf(10, "dvb_teletext\n");
 		int i = 0;
@@ -1609,10 +1469,7 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 		if (context->manager->dvbsubtitle->Command(context, MANAGER_ADD, &track) < 0) {
 		    ffmpeg_err("failed to add dvbsubtitle track %d\n", n);
 		}
-	    } else
-#endif
-
-	    if (context->manager->subtitle)
+	    } else if (context->manager->subtitle)
 		if (context->manager->subtitle->Command(context, MANAGER_ADD, &track) < 0) {
 		    /* konfetti: fixme: is this a reason to return with error? */
 		    ffmpeg_err("failed to add subtitle track %d\n", n);
@@ -1630,12 +1487,6 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 	}
 
     } /* for */
-
-#ifndef MARTII
-    /* init */
-    latestPts = 0;
-    isContainerRunning = 1;
-#endif
 
     releaseMutex(FILENAME, __FUNCTION__,__LINE__);
 
@@ -1695,10 +1546,8 @@ static int container_ffmpeg_stop(Context_t *context) {
 	ffmpeg_err("Container not running\n");
 	return cERR_CONTAINER_FFMPEG_ERR;
     }
-#ifdef MARTII
     if (context->playback)
 	context->playback->isPlaying = 0;
-#endif
 
     while ( (hasPlayThreadStarted != 0) && (--wait_time) > 0 ) {
 	ffmpeg_printf(10, "Waiting for ffmpeg thread to terminate itself, will try another %d times\n", wait_time);
@@ -1713,26 +1562,15 @@ static int container_ffmpeg_stop(Context_t *context) {
     }
 
     hasPlayThreadStarted = 0;
-#ifdef MARTII
     terminating = 1;
-#endif
 
     getMutex(FILENAME, __FUNCTION__,__LINE__);
 
-#ifdef MARTII
     if (avContext)
 	avformat_close_input(&avContext);
-#else
-    if (avContext != NULL) {
-	av_close_input_file(avContext);
-	avContext = NULL;
-    }
-#endif
 
     isContainerRunning = 0;
-#ifdef MARTII //TDT
     avformat_network_deinit();
-#endif
 
     releaseMutex(FILENAME, __FUNCTION__,__LINE__);
 
@@ -1915,29 +1753,26 @@ static int container_ffmpeg_seek_rel(Context_t *context, off_t pos, long long in
     return cERR_CONTAINER_FFMPEG_NO_ERROR;
 }
 
-static int container_ffmpeg_seek(Context_t *context, float sec) {
+static int container_ffmpeg_seek(Context_t *context, float sec, int absolute) {
     Track_t * videoTrack = NULL;
     Track_t * audioTrack = NULL;
     Track_t * current = NULL;
     int flag = 0;
 
-#if !defined(VDR1722)
-    ffmpeg_printf(10, "seeking %f sec\n", sec);
+    if (absolute) {
+	ffmpeg_printf(10, "goto %f sec\n", sec);
 
-    if (sec == 0.0)
-    {
-	ffmpeg_err("sec = 0.0 ignoring\n");
-	return cERR_CONTAINER_FFMPEG_ERR;
-    }
-#else
-    ffmpeg_printf(10, "goto %f sec\n", sec);
+	if (sec < 0.0)
+		sec = 0.0;
+    } else {
+	ffmpeg_printf(10, "seeking %f sec\n", sec);
 
-    if (sec < 0.0)
-    {
-	ffmpeg_err("sec < 0.0 ignoring\n");
-	return cERR_CONTAINER_FFMPEG_ERR;
+	if (sec == 0.0)
+	{
+	    ffmpeg_err("sec = 0.0 ignoring\n");
+	    return cERR_CONTAINER_FFMPEG_ERR;
+	}
     }
-#endif
     context->manager->video->Command(context, MANAGER_GET_TRACK, &videoTrack);
     context->manager->audio->Command(context, MANAGER_GET_TRACK, &audioTrack);
 
@@ -1984,27 +1819,12 @@ static int container_ffmpeg_seek(Context_t *context, float sec) {
 	{
 	    sec *= 180000.0;
 	}
-#ifdef MARTII
 	if (absolute)
 	    pos = sec;
 	else
 	    pos += sec;
-#else
-#if !defined(VDR1722)
-	pos += sec;
-#else
-	pos = sec;
-#endif
-#endif
 	if (pos < 0)
-	{
-#ifdef MARTII
 	   pos = 0;
-#else
-	   ffmpeg_err("end of file reached\n");
-	   return cERR_CONTAINER_FFMPEG_END_OF_FILE;
-#endif
-	}
 
 	ffmpeg_printf(10, "1. seeking to position %lld bytes ->sec %f\n", pos, sec);
 
@@ -2017,14 +1837,8 @@ static int container_ffmpeg_seek(Context_t *context, float sec) {
 
     } else
     {
-#ifdef MARTII
 	if (!absolute)
 	    sec += ((float) current->pts / 90000.0f);
-#else
-#if !defined(VDR1722)
-	sec += ((float) current->pts / 90000.0f);
-#endif
-#endif
 	ffmpeg_printf(10, "2. seeking to position %f sec ->time base %f %d\n", sec, av_q2d(((AVStream*) current->stream)->time_base), AV_TIME_BASE);
 
 	if (av_seek_frame(avContext, -1 /* or streamindex */, sec * AV_TIME_BASE, flag) < 0) {
@@ -2097,7 +1911,7 @@ static int container_ffmpeg_swich_subtitle(Context_t* context, int* arg)
     /* Hellmaster1024: nothing to do here!*/
     return cERR_CONTAINER_FFMPEG_NO_ERROR;
 }
-#ifdef MARTII
+
 static int container_ffmpeg_switch_dvbsubtitle(Context_t* context, int* arg)
 {
     return cERR_CONTAINER_FFMPEG_NO_ERROR;
@@ -2107,7 +1921,6 @@ static int container_ffmpeg_switch_teletext(Context_t* context, int* arg)
 {
     return cERR_CONTAINER_FFMPEG_NO_ERROR;
 }
-#endif
 
 /* konfetti comment: I dont like the mechanism of overwriting
  * the pointer in infostring. This lead in most cases to
@@ -2181,15 +1994,13 @@ static int Command(void  *_context, ContainerCmd_t command, void * argument)
 
     ffmpeg_printf(50, "Command %d\n", command);
 
-#ifdef MARTII
     if (command != CONTAINER_INIT && !avContext)
 	return cERR_CONTAINER_FFMPEG_ERR;
-#endif
     switch(command)
     {
     case CONTAINER_INIT:  {
-	char * FILENAME = (char *)argument;
-	ret = container_ffmpeg_init(context, FILENAME);
+	char * filename = (char *)argument;
+	ret = container_ffmpeg_init(context, filename);
 	break;
     }
     case CONTAINER_PLAY:  {
@@ -2201,14 +2012,9 @@ static int Command(void  *_context, ContainerCmd_t command, void * argument)
 	break;
     }
     case CONTAINER_SEEK: {
-#ifdef MARTII
 	ret = container_ffmpeg_seek(context, (float)*((float*)argument), 0);
-#else
-	ret = container_ffmpeg_seek(context, (float)*((float*)argument));
-#endif
 	break;
     }
-#ifdef MARTII
     case CONTAINER_SEEK_ABS: {
 	ret = container_ffmpeg_seek(context, (float)*((float*)argument), -1);
 	break;
@@ -2240,7 +2046,6 @@ static int Command(void  *_context, ContainerCmd_t command, void * argument)
 	*((long long int*)argument) = latestPts;
 	break;
     }
-#ifdef MARTII
     case CONTAINER_SWITCH_DVBSUBTITLE: {
 	ret = container_ffmpeg_switch_dvbsubtitle(context, (int*) argument);
 	break;
@@ -2249,7 +2054,6 @@ static int Command(void  *_context, ContainerCmd_t command, void * argument)
 	ret = container_ffmpeg_switch_teletext(context, (int*) argument);
 	break;
     }
-#endif
     default:
 	ffmpeg_err("ContainerCmd %d not supported!\n", command);
 	ret = cERR_CONTAINER_FFMPEG_ERR;
@@ -2261,11 +2065,7 @@ static int Command(void  *_context, ContainerCmd_t command, void * argument)
     return ret;
 }
 
-#ifdef MARTII
 static char *FFMPEG_Capabilities[] = {"avi", "mkv", "mp4", "ts", "mov", "flv", "flac", "mp3", "mpg", "m2ts", "vob", "wmv","wma", "asf", "mp2", "m4v", "m4a", "divx", "dat", "mpeg", "trp", "mts", "vdr", "ogg", "wav", "wtv", NULL };
-#else
-static char *FFMPEG_Capabilities[] = {"avi", "mkv", "mp4", "ts", "mov", "flv", "flac", "mp3", "mpg", "m2ts", "vob", "wmv","wma", "asf", "mp2", "m4v", "m4a", "divx", "dat", "mpeg", "trp", "mts", "vdr", "ogg", "wav", NULL };
-#endif
 
 Container_t FFMPEGContainer = {
     "FFMPEG",

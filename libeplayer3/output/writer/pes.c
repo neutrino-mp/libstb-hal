@@ -93,11 +93,7 @@ int InsertPesHeader (unsigned char *data, int size, unsigned char stream_id, uns
 #if 0
     /* does not seem to hurt, at least with h264 data...? */
     if (size > MAX_PES_PACKET_SIZE)
-#ifdef MARTII
-	size = 0; // unbounded
-#else
-        printf("%s: Packet bigger than 63.9K eeeekkkkk\n",__FUNCTION__);
-#endif
+    size = 0; // unbounded
 
     PutBits(&ld2,0x0  ,8);
     PutBits(&ld2,0x0  ,8);
