@@ -54,9 +54,9 @@
 #define ASS_DEBUG
 
 #ifdef ASS_DEBUG
-
 static const char *FILENAME = "container_ass.c";
-static short debug_level = 10;
+
+static short debug_level = 0;
 
 #define ass_printf(level, fmt, x...) do { \
 if (debug_level >= level) printf("[%s:%s] " fmt, FILENAME, __FUNCTION__, ## x); } while (0)

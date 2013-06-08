@@ -53,9 +53,9 @@
 #define VORBIS_DEBUG
 
 #ifdef VORBIS_DEBUG
-
-static short debug_level = 1;
 static const char *FILENAME = "vorbis.c";
+
+static short debug_level = 0;
 
 #define vorbis_printf(level, fmt, x...) do { \
 if (debug_level >= level) printf("[%s:%s] " fmt, FILENAME, __FUNCTION__, ## x); } while (0)
