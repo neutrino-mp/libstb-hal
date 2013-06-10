@@ -54,9 +54,9 @@
 #define H264_DEBUG
 
 #ifdef H264_DEBUG
-
 static const char *FILENAME = "h264.c";
-static short debug_level = 0;
+
+static short debug_level = 10;
 
 #define h264_printf(level, fmt, x...) do { \
 if (debug_level >= level) printf("[%s:%s] " fmt, FILENAME, __FUNCTION__, ## x); } while (0)
@@ -113,16 +113,14 @@ static int writeData(void* _call)
 {
     WriterAVCallData_t* call = (WriterAVCallData_t*) _call;
 
-    unsigned char*          PacketStart = NULL;
-    unsigned int            PacketStartSIZE = 0;
     unsigned char           PesHeader[PES_MAX_HEADER_SIZE];
     unsigned long long int  VideoPts;
     unsigned int            TimeDelta;
     unsigned int            TimeScale;
     int                     len = 0;
     static int              NoOtherBeginningFound = 1;
-	int ic = 0;
-	struct iovec iov[128];
+    int ic = 0;
+    struct iovec iov[128];
     h264_printf(10, "\n");
 
     if (call == NULL)
@@ -178,10 +176,10 @@ static int writeData(void* _call)
     if (initialHeader)
     {
         avcC_t*         avcCHeader          = (avcC_t*)call->private_data;
-        int             i;
+        unsigned int	i;
         unsigned int    ParamSets;
         unsigned int    ParamOffset;
-        unsigned int    InitialHeaderLength     = 0;
+        unsigned int	InitialHeaderLength     = 0;
         unsigned int    ParametersLength;
 
         if (avcCHeader == NULL) {
@@ -320,8 +318,6 @@ static int writeData(void* _call)
             NalStart               += NalLength;
             while (NalLength > 0) {
                 unsigned int   PacketLength     = (NalLength < BUFFER_SIZE) ? NalLength : BUFFER_SIZE;
-                int            ExtraLength      = 0;
-
                 NalLength      -= PacketLength;
 
 		ic = 0;

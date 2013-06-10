@@ -16,7 +16,7 @@ extern GLFramebuffer *glfb;
 #define fb_pixel_t uint32_t
 #endif
 
-int main(int argc, char ** argv)
+int main(int argc __attribute__((unused)), char ** argv __attribute__((unused)))
 {
 	init_td_api();
 #if HAVE_GENERIC_HARDWARE

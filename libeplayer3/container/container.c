@@ -44,6 +44,11 @@ if (debug_level >= level) printf(x); } while (0)
 
 static const char FILENAME[] = "container.c";
 
+static Container_t * AvailableContainer[] = {
+    &FFMPEGContainer,
+    NULL
+};
+
 static void printContainerCapabilities() {
     int i, j;
 
