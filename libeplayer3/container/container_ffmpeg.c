@@ -493,7 +493,7 @@ static void FFMPEGThread(Context_t *context) {
 	    Track_t * teletextTrack = NULL;
 #endif
 
-	    int ix = packet.stream_index;
+	    int pid = avContext->streams[packet.stream_index]->id;
 
 	    if (context->manager->video->Command(context, MANAGER_GET_TRACK, &videoTrack) < 0)
 		ffmpeg_err("error getting video track\n");
@@ -510,10 +510,10 @@ static void FFMPEGThread(Context_t *context) {
 	    if (context->manager->teletext->Command(context, MANAGER_GET_TRACK, &teletextTrack) < 0)
 		ffmpeg_err("error getting teletext track\n");
 
-	    ffmpeg_printf(200, "packet.size %d - index %d\n", packet.size, ix);
+	    ffmpeg_printf(200, "packet.size %d - index %d\n", packet.size, pid);
 
 	    if (videoTrack != NULL) {
-		if (videoTrack->Id == ix) {
+		if (videoTrack->Id == pid) {
 		    currentVideoPts = videoTrack->pts = pts = calcPts(videoTrack->stream, &packet);
 
 		    if ((currentVideoPts > latestPts) && (currentVideoPts != INVALID_PTS_VALUE))
@@ -527,7 +527,7 @@ static void FFMPEGThread(Context_t *context) {
 		    }
 #endif
 
-		    ffmpeg_printf(200, "VideoTrack index = %d %lld\n",ix, currentVideoPts);
+		    ffmpeg_printf(200, "VideoTrack index = %d %lld\n",pid, currentVideoPts);
 
 		    avOut.data       = packet.data;
 		    avOut.len        = packet.size;
@@ -547,7 +547,7 @@ static void FFMPEGThread(Context_t *context) {
 	    }
 
 	    if (audioTrack != NULL) {
-		if (audioTrack->Id == ix) {
+		if (audioTrack->Id == pid) {
 		    currentAudioPts = audioTrack->pts = pts = calcPts(audioTrack->stream, &packet);
 
 		    if ((currentAudioPts > latestPts) && (!videoTrack))
@@ -561,7 +561,7 @@ static void FFMPEGThread(Context_t *context) {
 		    }
 #endif
 
-		    ffmpeg_printf(200, "AudioTrack index = %d\n",ix);
+		    ffmpeg_printf(200, "AudioTrack index = %d\n",pid);
                     if (audioTrack->inject_raw_pcm == 1){
                         ffmpeg_printf(200,"write audio raw pcm\n");
 
@@ -782,7 +782,7 @@ static void FFMPEGThread(Context_t *context) {
 	    }
 
 	    if (subtitleTrack != NULL) {
-		if (subtitleTrack->Id == ix) {
+		if (subtitleTrack->Id == pid) {
 		    float duration=3.0;
 		    ffmpeg_printf(100, "subtitleTrack->stream %p \n", subtitleTrack->stream);
 
@@ -890,10 +890,10 @@ static void FFMPEGThread(Context_t *context) {
 		}
 	    }
 	    if (dvbsubtitleTrack != NULL) {
-		if (dvbsubtitleTrack->Id == index) {
-		    currentDvbsubtitlePts = dvbsubtitleTrack->pts = pts = calcPts(dvbsubtitleTrack->stream, &packet);
+		if (dvbsubtitleTrack->Id == pid) {
+		    dvbsubtitleTrack->pts = pts = calcPts(dvbsubtitleTrack->stream, &packet);
 
-		    ffmpeg_printf(200, "DvbSubTitle index = %d\n",index);
+		    ffmpeg_printf(200, "DvbSubTitle index = %d\n",pid);
 
 		    avOut.data       = packet.data;
 		    avOut.len        = packet.size;
@@ -913,10 +913,10 @@ static void FFMPEGThread(Context_t *context) {
 		}
 	    }
 	    if (teletextTrack != NULL) {
-		if (teletextTrack->Id == index) {
-		    currentTeletextPts = teletextTrack->pts = pts = calcPts(teletextTrack->stream, &packet);
+		if (teletextTrack->Id == pid) {
+		    teletextTrack->pts = pts = calcPts(teletextTrack->stream, &packet);
 
-		    ffmpeg_printf(200, "TeleText index = %d\n",index);
+		    ffmpeg_printf(200, "TeleText index = %d\n",pid);
 
 		    avOut.data       = packet.data;
 		    avOut.len        = packet.size;
@@ -1029,6 +1029,7 @@ int container_ffmpeg_init(Context_t *context, char * filename)
 	return cERR_CONTAINER_FFMPEG_OPEN;
     }
 
+    avContext->iformat->flags |= AVFMT_SEEK_TO_PTS;
     avContext->flags = AVFMT_FLAG_GENPTS;
     if (context->playback->noprobe)
         avContext->max_analyze_duration = 1;
@@ -1061,6 +1062,29 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 {
     if (terminating)
 	return cERR_CONTAINER_FFMPEG_NO_ERROR;
+
+    Track_t * audioTrack = NULL;
+    Track_t * subtitleTrack = NULL;
+    Track_t * dvbsubtitleTrack = NULL;
+    Track_t * teletextTrack = NULL;
+    int audioId = -1;
+    int subtitleId = -1;
+    int dvbsubtitleId = -1;
+    int teletextId = -1;
+
+    context->manager->audio->Command(context, MANAGER_GET_TRACK, &audioTrack);
+    context->manager->subtitle->Command(context, MANAGER_GET_TRACK, &subtitleTrack);
+    context->manager->dvbsubtitle->Command(context, MANAGER_GET_TRACK, &dvbsubtitleTrack);
+    context->manager->teletext->Command(context, MANAGER_GET_TRACK, &teletextTrack);
+
+    if (audioTrack)
+	audioId = ((AVStream *) (audioTrack->stream))->id;
+    if (subtitleTrack)
+	subtitleId = ((AVStream *) (subtitleTrack->stream))->id;
+    if (dvbsubtitleTrack)
+	dvbsubtitleId = ((AVStream *) (dvbsubtitleTrack->stream))->id;
+    if (teletextTrack)
+	teletextId = ((AVStream *) (teletextTrack->stream))->id;
 
     unsigned int n;
 
@@ -1138,9 +1162,8 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 
 		track.Name      = "und";
 		track.Encoding  = encoding;
-		track.Id        = n;
-
 		track.stream    = stream;
+		track.Id        = ((AVStream *) (track.stream))->id;
 
 		if(stream->duration == AV_NOPTS_VALUE) {
 		    ffmpeg_printf(10, "Stream has no duration so we take the duration from context\n");
@@ -1175,11 +1198,9 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 		ffmpeg_printf(10, "Language %s\n", track.Name);
 
 		track.Encoding       = encoding;
-		track.Id             = n;
-
 		track.stream         = stream;
+		track.Id        = ((AVStream *) (track.stream))->id;
 		track.duration       = (double)stream->duration * av_q2d(stream->time_base) * 1000.0;
-
 		track.aacbuf         = 0;
 		track.have_aacheader = -1;
 
@@ -1375,9 +1396,8 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 	    ffmpeg_printf(10, "Language %s\n", track.Name);
 
 	    track.Encoding       = encoding;
-	    track.Id             = n;
-
 	    track.stream         = stream;
+	    track.Id		 = ((AVStream *) (track.stream))->id;
 	    track.duration       = (double)stream->duration * av_q2d(stream->time_base) * 1000.0;
 
 	    track.aacbuf         = 0;
@@ -1443,6 +1463,15 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename)
 	}
 
     } /* for */
+
+    if (audioId > -1 && context->playback)
+	context->playback->Command(context, PLAYBACK_SWITCH_AUDIO, &audioId);
+    if (subtitleId > -1 && context->playback)
+	context->playback->Command(context, PLAYBACK_SWITCH_SUBTITLE, &subtitleId);
+    if (dvbsubtitleId > -1 && context->playback)
+	context->playback->Command(context, PLAYBACK_SWITCH_DVBSUBTITLE, &dvbsubtitleId);
+    if (teletextId > -1 && context->playback)
+	context->playback->Command(context, PLAYBACK_SWITCH_TELETEXT, &teletextId);
 
     releaseMutex(FILENAME, __FUNCTION__,__LINE__);
 
