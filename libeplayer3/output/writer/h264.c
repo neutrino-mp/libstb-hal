@@ -118,7 +118,10 @@ static int writeData(void* _call)
     unsigned int            TimeDelta;
     unsigned int            TimeScale;
     int                     len = 0;
+#if 0
+// This should at least be set to 1 in reset(), but seems to make playback unreliable. Disabled for now. --martii
     static int              NoOtherBeginningFound = 1;
+#endif
     int ic = 0;
     struct iovec iov[128];
     h264_printf(10, "\n");
@@ -147,6 +150,8 @@ static int writeData(void* _call)
         return 0;
     }
 
+#if 0
+// This seems to make playback unreliable. Disabled for now. --martii
     if((call->data[0] == 0x00 && call->data[1] == 0x00 && call->data[2] == 0x00 && call->data[3] == 0x01) ||
        (call->data[0] == 0x00 && call->data[1] == 0x00 && call->data[2] == 0x01 && NoOtherBeginningFound) ||
             (call->data[0] == 0xff && call->data[1] == 0xff && call->data[2] == 0xff && call->data[3] == 0xff))
@@ -172,6 +177,7 @@ static int writeData(void* _call)
 	return writev(call->fd, iov, ic);
     }
     NoOtherBeginningFound = 0;
+#endif
 
     if (initialHeader)
     {
