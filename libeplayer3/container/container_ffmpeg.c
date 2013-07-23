@@ -744,9 +744,8 @@ static void FFMPEGThread(Context_t *context) {
 
 			       }
 			   }
-
 			}
-			else
+
 			if(((AVStream*)subtitleTrack->stream)->codec->codec_id == AV_CODEC_ID_SSA)
 			{
 			    SubtitleData_t data;
