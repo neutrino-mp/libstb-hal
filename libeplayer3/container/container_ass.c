@@ -194,7 +194,7 @@ void releaseRegions()
     }
 
     next = firstRegion;
-    while (next != NULL)
+    while (next)
     {
         if (writer)
         {
@@ -243,13 +243,13 @@ void checkRegions()
 
     writer = getDefaultFramebufferWriter();
 
-    if (writer == NULL)
+    if (!writer)
     {
         ass_err("no framebuffer writer found!\n");
     }
 
     prev = next = firstRegion;
-    while (next != NULL)
+    while (next)
     {
         if (now > next->undisplay + cDeltaTime)
         {
@@ -385,7 +385,7 @@ static void ASSThread(Context_t *context) {
 
             ass_printf(150, "img %p pts %lu %f\n", img, playPts, playPts / 90.0);
 
-            if(img != NULL && ass_renderer && ass_track)
+            if(img && ass_renderer && ass_track)
             {
                 /* the spec says, that if a new set of regions is present
                  * the complete display switches to the new state. So lets
@@ -398,7 +398,7 @@ static void ASSThread(Context_t *context) {
 		time_t undisplay = now + 10;
 
 		if (ass_track && ass_track->events)
-		undisplay = now + (ass_track->events->Duration + 500) / 90000;
+			undisplay = now + (ass_track->events->Duration + 500) / 90000;
 
 		if (shareFramebuffer) {
 			ASS_Image *it;
@@ -456,7 +456,7 @@ static void ASSThread(Context_t *context) {
                     /* api docu said w and h can be zero which
                      * means image should not be rendered
                      */
-                    if ((img->w != 0) && (img->h != 0) && (writer))
+                    if ((img->w != 0) && (img->h != 0) && writer)
                     {
                         out.fd            = framebufferFD;
                         out.data          = img->bitmap;
@@ -483,6 +483,8 @@ static void ASSThread(Context_t *context) {
                                 writer->writeData(&out);
                             }
                         }
+#if NO_SHARED_FRAMEBUFFER
+// currently not needed, but might be useful when switching to cst subtitle implementation in movieplayer
                         else
                         {
                             /* application does not want to share framebuffer,
@@ -513,6 +515,7 @@ static void ASSThread(Context_t *context) {
                                context->output && context->output->subtitle)
                                 context->output->subtitle->Write(context, &sub_out);
                         }
+#endif
 		        needsBlit = 1;
                     }
 
@@ -520,11 +523,6 @@ static void ASSThread(Context_t *context) {
                     img = img->next;
                 }
             }
-            else
-            {
-               /* noop */
-            }
-
             releaseMutex(__LINE__);
         } else
         {
@@ -708,8 +706,7 @@ static int container_ass_stop(Context_t *context __attribute__((unused))) {
 
     writer = getDefaultFramebufferWriter();
 
-    if (writer != NULL)
-    {
+    if (writer) {
         writer->reset();
     }
 
