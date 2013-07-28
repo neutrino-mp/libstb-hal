@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <sys/poll.h>
 #include <pthread.h>
+#include <sys/prctl.h>
 
 #include <ass/ass.h>
 
@@ -316,6 +317,10 @@ void storeRegion(unsigned int x, unsigned int y, unsigned int w, unsigned int h,
 /* **************************** */
 
 static void ASSThread(Context_t *context) {
+    char threadname[17];
+    strncpy(threadname, __func__, sizeof(threadname));
+    threadname[16] = 0;
+    prctl (PR_SET_NAME, (unsigned long)&threadname);
     Writer_t* writer;
     
     ass_printf(10, "\n");
