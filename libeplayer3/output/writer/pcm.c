@@ -207,7 +207,7 @@ static int writeData(void* _call)
 	if (initialHeader) {
 		initialHeader = 0;
 		prepareClipPlay(pcmPrivateData->uNoOfChannels, pcmPrivateData->uSampleRate, 
-			pcmPrivateData->uBitsPerSample, pcmPrivateData->bLittleEndian);
+				pcmPrivateData->uBitsPerSample, pcmPrivateData->bLittleEndian);
 	}
 
 	unsigned char * buffer = call->data;
