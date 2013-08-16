@@ -364,6 +364,13 @@ static void FFMPEGThread(Context_t *context) {
             continue;
         }
 
+	getMutex(FILENAME, __FUNCTION__,__LINE__);
+
+	if (!context->playback || !context->playback->isPlaying) {
+    		releaseMutex(FILENAME, __FUNCTION__,__LINE__);
+		continue;
+	}
+
 	if (context->playback->BackWard && av_gettime() >= showtime)
 	{
 	      context->output->Command(context, OUTPUT_CLEAR, "video");
@@ -393,8 +400,6 @@ static void FFMPEGThread(Context_t *context) {
 		  }
 	      }
 	}
-
-	getMutex(FILENAME, __FUNCTION__,__LINE__);
 
 	if (do_seek_target_seconds || do_seek_target_bytes) {
 		if (do_seek_target_seconds) {
@@ -914,7 +919,8 @@ int container_ffmpeg_init(Context_t *context, char * filename)
     terminating = 0;
     latestPts = 0;
     isContainerRunning = 1;
-    return container_ffmpeg_update_tracks(context, filename, 1);
+    int res = container_ffmpeg_update_tracks(context, filename, 1);
+    return res;
 }
 
 int container_ffmpeg_update_tracks(Context_t *context, char *filename, int initial)
@@ -926,10 +932,6 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename, int initi
     Track_t * subtitleTrack = NULL;
     Track_t * dvbsubtitleTrack = NULL;
     Track_t * teletextTrack = NULL;
-    int audioId = -1;
-    int subtitleId = -1;
-    int dvbsubtitleId = -1;
-    int teletextId = -1;
 
     context->manager->audio->Command(context, MANAGER_GET_TRACK, &audioTrack);
     if (initial)
@@ -937,28 +939,18 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename, int initi
     context->manager->dvbsubtitle->Command(context, MANAGER_GET_TRACK, &dvbsubtitleTrack);
     context->manager->teletext->Command(context, MANAGER_GET_TRACK, &teletextTrack);
 
-    if (audioTrack)
-	audioId = ((AVStream *) (audioTrack->stream))->id;
-    if (initial && subtitleTrack)
-	subtitleId = ((AVStream *) (subtitleTrack->stream))->id;
-    if (dvbsubtitleTrack)
-	dvbsubtitleId = ((AVStream *) (dvbsubtitleTrack->stream))->id;
-    if (teletextTrack)
-	teletextId = ((AVStream *) (teletextTrack->stream))->id;
-
-    getMutex(FILENAME, __FUNCTION__,__LINE__);
     if (context->manager->video)
-	    context->manager->video->Command(context, MANAGER_DEL, NULL);
+	    context->manager->video->Command(context, MANAGER_INIT_UPDATE, NULL);
     if (context->manager->audio)
-	    context->manager->audio->Command(context, MANAGER_DEL, NULL);
+	    context->manager->audio->Command(context, MANAGER_INIT_UPDATE, NULL);
 #if 0
     if (context->manager->subtitle)
-	    context->manager->subtitle->Command(context, MANAGER_DEL, NULL);
+	    context->manager->subtitle->Command(context, MANAGER_INIT_UPDATE, NULL);
 #endif
     if (context->manager->dvbsubtitle)
-	    context->manager->dvbsubtitle->Command(context, MANAGER_DEL, NULL);
+	    context->manager->dvbsubtitle->Command(context, MANAGER_INIT_UPDATE, NULL);
     if (context->manager->teletext)
-	    context->manager->teletext->Command(context, MANAGER_DEL, NULL);
+	    context->manager->teletext->Command(context, MANAGER_INIT_UPDATE, NULL);
 
     ffmpeg_printf(20, "dump format\n");
     av_dump_format(avContext, 0, filename, 0);
@@ -1342,19 +1334,6 @@ int container_ffmpeg_update_tracks(Context_t *context, char *filename, int initi
 
     } /* for */
 
-    if (context->playback) {
-	if (audioId > -1)
-		context->playback->Command(context, PLAYBACK_SWITCH_AUDIO, &audioId);
-	if (subtitleId > -1)
-		context->playback->Command(context, PLAYBACK_SWITCH_SUBTITLE, &subtitleId);
-	if (dvbsubtitleId > -1)
-		context->playback->Command(context, PLAYBACK_SWITCH_DVBSUBTITLE, &dvbsubtitleId);
-	if (teletextId > -1)
-		context->playback->Command(context, PLAYBACK_SWITCH_TELETEXT, &teletextId);
-    }
-
-    releaseMutex(FILENAME, __FUNCTION__,__LINE__);
-
     return cERR_CONTAINER_FFMPEG_NO_ERROR;
 }
 
@@ -1496,8 +1475,6 @@ static int container_ffmpeg_seek_rel(Context_t *context, off_t pos, long long in
     if (sec < 0)
 	seek_target_flag |= AVSEEK_FLAG_BACKWARD;
 
-    getMutex(FILENAME, __FUNCTION__,__LINE__);
-
     ffmpeg_printf(10, "iformat->flags %d\n", avContext->iformat->flags);
 
     if (avContext->iformat->flags & AVFMT_TS_DISCONT)
@@ -1526,7 +1503,6 @@ static int container_ffmpeg_seek_rel(Context_t *context, off_t pos, long long in
 	seek_target_bytes = pos;
 	do_seek_target_bytes = 1;
 
-	releaseMutex(FILENAME, __FUNCTION__,__LINE__);
 	return pos;
     }
     else
@@ -1583,6 +1559,11 @@ static int container_ffmpeg_seek(Context_t *context, float sec, int absolute) {
 	seek_target_flag |= AVSEEK_FLAG_BACKWARD;
 
     getMutex(FILENAME, __FUNCTION__,__LINE__);
+
+    if (!context->playback || !context->playback->isPlaying) {
+    	releaseMutex(FILENAME, __FUNCTION__,__LINE__);
+	return cERR_CONTAINER_FFMPEG_NO_ERROR;
+    }
 
     ffmpeg_printf(10, "iformat->flags %d\n", avContext->iformat->flags);
 
