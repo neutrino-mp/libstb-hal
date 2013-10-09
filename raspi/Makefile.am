@@ -1,6 +1,7 @@
 noinst_LTLIBRARIES = libraspi.la
 
 AM_CPPFLAGS = -D__STDC_FORMAT_MACROS -D__STDC_CONSTANT_MACROS
+AM_CPPFLAGS += -DUSE_VCHIQ_ARM -DOMX -DOMX_SKIP64BIT -DUSE_EXTERNAL_OMX -DHAVE_LIBBCM_HOST -DUSE_EXTERNAL_LIBBCM_HOST
 AM_CPPFLAGS += \
 	-I/opt/vc/include \
 	-I/opt/vc/include/interface/vcos/pthreads/ \
@@ -19,6 +20,8 @@ libraspi_la_SOURCES = \
 	video.cpp \
 	audio.cpp \
 	glfb.cpp \
+	ilclient.c \
+	ilcore.c \
 	init.cpp \
 	playback.cpp \
 	pwrmngr.cpp \

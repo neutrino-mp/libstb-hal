@@ -1,0 +1,7 @@
+The ilclient library files are taken from raspberrypi firmware git
+at https://github.com/raspberrypi/firmware.git, commit 01c78fe3452
+
+License is 3-Clause BSD and thus GPLv2 compatible.
+
+Reworked slightly to silence compiler warnings when compiled
+against c++ code.
