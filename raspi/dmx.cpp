@@ -387,15 +387,15 @@ bool cDemux::pesFilter(const unsigned short pid)
 	switch (dmx_type) {
 	case DMX_PCR_ONLY_CHANNEL:
 		p_flt.pes_type = DMX_PES_OTHER;
-		p_flt.output  = DMX_OUT_TS_TAP;
+		p_flt.output  = DMX_OUT_TAP;
 		break;
 	case DMX_AUDIO_CHANNEL:
 		p_flt.pes_type = DMX_PES_OTHER;
-		p_flt.output  = DMX_OUT_TS_TAP;
+		p_flt.output  = DMX_OUT_TAP;
 		break;
 	case DMX_VIDEO_CHANNEL:
 		p_flt.pes_type = DMX_PES_OTHER;
-		p_flt.output  = DMX_OUT_TS_TAP;
+		p_flt.output  = DMX_OUT_TAP;
 		break;
 	case DMX_PES_CHANNEL:
 		p_flt.pes_type = DMX_PES_OTHER;
