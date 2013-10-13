@@ -31,6 +31,7 @@
 #include <sys/time.h>
 #include <assert.h>
 #include <libavformat/avformat.h>
+#include <lt_debug.h>
 #include "codec.h"
 #include "avcodec_omx.h"
 #include "omx_utils.h"
@@ -45,6 +46,7 @@ static void* acodec_omx_thread(struct codec_init_args_t* args)
   OMX_BUFFERHEADERTYPE *buf;
 
   free(args);
+  hal_set_threadname("hal:omx_audio");
   fprintf(stderr,"Starting acodec_omx_thread\n");
 
 new_channel:
@@ -174,6 +176,7 @@ static void* vcodec_omx_thread(struct codec_init_args_t* args)
    double min_bitrate, max_bitrate;
 
    free(args);
+   hal_set_threadname("hal:omx_video");
 
    codec->first_packet = 1;
 
