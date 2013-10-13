@@ -23,13 +23,20 @@ if test x"$BOXTYPE" = x"tripledragon"; then
 	TUXBOX_APPS_LIB_PKGCONFIG(DIRECTFB, directfb)
 fi
 
-if test x$BOXTYPE = xgeneric -a x$BOXMODEL != xraspi; then
-	PKG_CHECK_MODULES([AVFORMAT], [libavformat >= 53.21.1])
-	PKG_CHECK_MODULES([AVCODEC], [libavcodec >= 54.28.0])
+if test x$BOXTYPE = xgeneric; then
+	if test x$BOXMODEL != xraspi; then
+		PKG_CHECK_MODULES([AVFORMAT], [libavformat >= 53.21.1])
+		PKG_CHECK_MODULES([AVCODEC], [libavcodec >= 54.28.0])
+		# don't know which version is exactly needed here...
+		PKG_CHECK_MODULES([SWSCALE], [libswscale])
+		PKG_CHECK_MODULES([SWRESAMPLE], [libswresample])
+	else
+		# raspbian has no current versions and only libav instead of ffmpeg... :-(
+		PKG_CHECK_MODULES([AVFORMAT], [libavformat])
+		PKG_CHECK_MODULES([AVCODEC], [libavcodec])
+	fi
 	# don't know which version is exactly needed here...
 	PKG_CHECK_MODULES([AVUTIL], [libavutil])
-	PKG_CHECK_MODULES([SWSCALE], [libswscale])
-	PKG_CHECK_MODULES([SWRESAMPLE], [libswresample])
 fi
 AC_OUTPUT([
 Makefile

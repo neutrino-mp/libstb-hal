@@ -382,20 +382,19 @@ bool cDemux::pesFilter(const unsigned short pid)
 	p_flt.output = DMX_OUT_DECODER;
 	p_flt.input  = DMX_IN_FRONTEND;
 
-	/* for now, output to TS_TAP for live mode,
-	 * test playback with "omxplayer /dev/dvb/adapter0/dvr0" */
 	switch (dmx_type) {
 	case DMX_PCR_ONLY_CHANNEL:
 		p_flt.pes_type = DMX_PES_OTHER;
 		p_flt.output  = DMX_OUT_TAP;
+		return true;
 		break;
 	case DMX_AUDIO_CHANNEL:
 		p_flt.pes_type = DMX_PES_OTHER;
-		p_flt.output  = DMX_OUT_TAP;
+		p_flt.output  = DMX_OUT_TSDEMUX_TAP;
 		break;
 	case DMX_VIDEO_CHANNEL:
 		p_flt.pes_type = DMX_PES_OTHER;
-		p_flt.output  = DMX_OUT_TAP;
+		p_flt.output  = DMX_OUT_TSDEMUX_TAP;
 		break;
 	case DMX_PES_CHANNEL:
 		p_flt.pes_type = DMX_PES_OTHER;

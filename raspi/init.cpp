@@ -37,11 +37,14 @@
 #include "init_lib.h"
 #include "lt_debug.h"
 #include "glfb.h"
+#include "avdec.h"
+
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_INIT, NULL, args)
 #define lt_info(args...) _lt_info(TRIPLE_DEBUG_INIT, NULL, args)
 
 static bool initialized = false;
 GLFramebuffer *glfb = NULL;
+AVDec *avdec = NULL;
 
 typedef std::map<uint16_t, uint16_t> keymap_t;
 static keymap_t kmap;
@@ -215,6 +218,8 @@ void init_td_api()
 	}
 	if (! thread)
 		thread = new Input();
+	if (! avdec)
+		avdec = new AVDec();
 	initialized = true;
 }
 
@@ -225,5 +230,7 @@ void shutdown_td_api()
 		delete glfb;
 	if (thread)
 		delete thread;
+	if (avdec)
+		delete avdec;
 	initialized = false;
 }

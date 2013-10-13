@@ -11,19 +11,26 @@ AM_CPPFLAGS += \
 AM_CXXFLAGS = -fno-rtti -fno-exceptions -fno-strict-aliasing
 
 AM_LDFLAGS = \
+	@AVFORMAT_LIBS@ \
+	@AVUTIL_LIBS@ \
+	@AVCODEC_LIBS@ \
 	-L/opt/vc/lib/ -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -lpthread -lrt \
 	-lOpenThreads
 
 libraspi_la_SOURCES = \
 	hardware_caps.c \
+	avdec.cpp \
 	dmx.cpp \
 	video.cpp \
 	audio.cpp \
 	glfb.cpp \
-	ilclient.c \
-	ilcore.c \
 	init.cpp \
 	playback.cpp \
 	pwrmngr.cpp \
 	record.cpp
 
+# OMX stuff, from https://github.com/linuxstb/pidvbip
+libraspi_la_SOURCES += \
+	avcodec_omx.c \
+	codec.c \
+	omx_utils.c

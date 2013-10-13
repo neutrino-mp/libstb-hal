@@ -22,12 +22,16 @@
 
 #include "audio_lib.h"
 #include "dmx_lib.h"
+#include "avdec.h"
 #include "lt_debug.h"
 
 #define lt_debug(args...) _lt_debug(HAL_DEBUG_AUDIO, this, args)
 #define lt_info(args...) _lt_info(HAL_DEBUG_AUDIO, this, args)
 
 cAudio * audioDecoder = NULL;
+
+extern cDemux *audioDemux;
+extern AVDec *avdec;
 
 cAudio::cAudio(void *, void *, void *)
 {
@@ -52,24 +56,34 @@ void cAudio::closeDevice(void)
 int cAudio::do_mute(bool enable, bool remember)
 {
 	lt_debug("%s(%d, %d)\n", __func__, enable, remember);
+	if (enable)
+		avdec->set_volume(0);
+	else
+		avdec->set_volume(volume);
 	return 0;
 }
 
 int cAudio::setVolume(unsigned int left, unsigned int right)
 {
 	lt_debug("%s(%d, %d)\n", __func__, left, right);
+	volume = (left + right)/2;
+	avdec->set_volume(volume);
 	return 0;
 }
 
 int cAudio::Start(void)
 {
-	lt_debug("%s >\n", __func__);
+	lt_info("%s >\n", __func__);
+	avdec->start_audio();
+	lt_info("%s <\n", __func__);
 	return 0;
 }
 
 int cAudio::Stop(void)
 {
-	lt_debug("%s >\n", __func__);
+	lt_info("%s >\n", __func__);
+	avdec->stop_audio();
+	lt_info("%s <\n", __func__);
 	return 0;
 }
 
@@ -151,4 +165,3 @@ void cAudio::setBypassMode(bool disable)
 {
 	lt_debug("%s %d\n", __func__, disable);
 }
-
