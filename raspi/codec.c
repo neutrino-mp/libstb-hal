@@ -203,8 +203,10 @@ void codec_queue_add_item(struct codec_t* codec, struct packet_t* packet, int ms
 
     codec->queue_count++;
   } else {
-    fprintf(stderr,"Dropping packet - codec is stopped.\n");
+//    fprintf(stderr,"Dropping packet - codec is stopped.\n");
+    free(packet->buf);
     free(packet);
+    free(new);
   }
 
   pthread_mutex_unlock(&codec->queue_mutex);
