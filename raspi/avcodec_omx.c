@@ -50,6 +50,7 @@ static void* acodec_omx_thread(struct codec_init_args_t* args)
   fprintf(stderr,"Starting acodec_omx_thread\n");
 
 new_channel:
+  codec->first_packet = 1;
   while(1)
   {
 next_packet:
@@ -60,11 +61,10 @@ next_packet:
     //fprintf(stderr,"[acodec] - waiting for omx_active_mutex\n");
     pthread_mutex_lock(&pi->omx_active_mutex);
     //fprintf(stderr,"[acodec] - got omx_active_mutex\n");
-    while (!pi->omx_active) {
+    while (pi->omx_active != 1) {
       pthread_cond_wait(&pi->omx_active_cv, &pi->omx_active_mutex);
       //fprintf(stderr,"[acodec] - omx_active=%d\n",pi->omx_active);
     }
-
     if (is_paused) {
       // Wait for resume message
       fprintf(stderr,"acodec: Waiting for resume\n");
@@ -77,6 +77,7 @@ next_packet:
     if (current->msgtype == MSG_STOP) {
       printf("[acodec] Stopping\n");
       codec_queue_free_item(codec,current);
+      pi->omx_active = 2; /* 2 == restarting, allows the vcodec to cleanly shutdown and restart */
       pthread_mutex_unlock(&pi->omx_active_mutex);
       goto new_channel;
     } else if (current->msgtype == MSG_NEW_CHANNEL) {
@@ -115,6 +116,7 @@ next_packet:
     } else {
       memcpy(buf->pBuffer, current->data->packet, current->data->packetlength);
       buf->nFilledLen = current->data->packetlength;
+      res = 0;
     }
 
 
@@ -222,8 +224,8 @@ next_packet:
            goto stop;
          } else {
            fprintf(stderr,"[vcodec] NEW_CHANNEL received, pipeline not active\n");
-           pthread_mutex_unlock(&pi->omx_active_mutex);
-           fprintf(stderr,"[vcodec] unlocked omx_active_mutex\n");
+///           pthread_mutex_unlock(&pi->omx_active_mutex); /* next_channel wants the mutex already locked */
+///           fprintf(stderr,"[vcodec] unlocked omx_active_mutex\n");
            goto next_channel;
          }
        } else if (current->msgtype == MSG_PAUSE) {
@@ -320,6 +322,7 @@ next_packet:
        height = codec->height;
        fprintf(stderr,"Initialised video codec - %s width=%d, height=%d\n",((coding == OMX_VIDEO_CodingAVC) ? "H264" : "MPEG-2"), width, height);
        codec->acodec->first_packet = 1;
+       codec->acodec->is_running = 1; /* hack, this makes avdec.cpp start feeding PCM data */
 
        /* We are ready to go, allow the audio codec back in */
        pi->omx_active = 1;
