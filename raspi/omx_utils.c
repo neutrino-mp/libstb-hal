@@ -1028,9 +1028,70 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pi)
      omx_send_command_and_wait(&pi->image_fx, OMX_CommandPortDisable, 191, NULL);
    }
 
+   DEBUGF("[vcodec] omx_teardown pipeline 10\n");
+
+   /* NOTE: The clock disable doesn't complete until after the video scheduler port is 
+      disabled (but it completes before the video scheduler port disabling completes). */
+   OERR(OMX_SendCommand(pi->clock.h, OMX_CommandPortDisable, 80, NULL));
+   omx_send_command_and_wait(&pi->audio_render, OMX_CommandPortDisable, 101, NULL);
+   OERR(OMX_SendCommand(pi->clock.h, OMX_CommandPortDisable, 81, NULL));
+   omx_send_command_and_wait(&pi->video_scheduler, OMX_CommandPortDisable, 12, NULL);
+   if (pi->video_decode.port_settings_changed == 2) {
+     //dumpport(pi->video_decode.h,131);
+     omx_send_command_and_wait(&pi->video_decode, OMX_CommandPortDisable, 131, NULL);
+   }
+
+   DEBUGF("[vcodec] omx_teardown pipeline 11\n");
+
+   /* Disable video_decode input port and buffers */
+   //dumpport(pi->video_decode.h,130);
+   omx_send_command_and_wait0(&pi->video_decode, OMX_CommandPortDisable, 130, NULL);
+   DEBUGF("[vcodec] omx_teardown pipeline 6\n");
+   omx_free_buffers(&pi->video_decode, 130);
+   DEBUGF("[vcodec] omx_teardown pipeline 7\n");
+   omx_send_command_and_wait1(&pi->video_decode, OMX_CommandPortDisable, 130, NULL);
+
+
    DEBUGF("[vcodec] omx_teardown pipeline 8a\n");
 
    //dumpport(pi->video_scheduler.h,10);
+#if 0
+   /* ports need to be disabled before tunnels are shut down. Otherwise,
+    * "video_decodeRIL:image pool" buffers will leak (check with "vcdbg reloc"
+    * the following paranoia checks are not necessary, because
+    * omx_send_command_and_wait() waits for completion
+    */
+   fprintf(stderr,"is_enabled 130\n");
+   while (is_port_enabled(pi->video_decode.h, 130))
+   {fprintf(stderr, "."); usleep(1);}
+   fprintf(stderr,"is_enabled 131\n");
+   while (is_port_enabled(pi->video_decode.h, 131))
+   {fprintf(stderr, "."); usleep(1);}
+   fprintf(stderr,"is_enabled 10\n");
+   while (is_port_enabled(pi->video_scheduler.h, 10))
+   {fprintf(stderr, "."); usleep(1);}
+   fprintf(stderr,"is_enabled 11\n");
+   while (is_port_enabled(pi->video_scheduler.h, 11))
+   {fprintf(stderr, "."); usleep(1);}
+   fprintf(stderr,"is_enabled 90\n");
+   while (is_port_enabled(pi->video_render.h, 90))
+   {fprintf(stderr, "."); usleep(1);}
+   fprintf(stderr,"is_enabled 101\n");
+   while (is_port_enabled(pi->audio_render.h, 101))
+   {fprintf(stderr, "."); usleep(1);}
+   fprintf(stderr,"is_enabled 100\n");
+   while (is_port_enabled(pi->audio_render.h, 100))
+   {fprintf(stderr, "."); usleep(1);}
+   DEBUGF("[vcodec] omx_teardown pipeline 8b\n");
+#endif
+   omx_show_state(&pi->video_decode,130,131,0);
+   dumpport(pi->video_decode.h,131);
+   omx_show_state(&pi->video_scheduler,10,11,12);
+   if (pi->do_deinterlace) { omx_show_state(&pi->image_fx,190,191,0); }
+   omx_show_state(&pi->video_render,90,0,0);
+   omx_show_state(&pi->audio_render,100,101,0);
+   omx_show_state(&pi->clock,80,81,0);
+   DEBUGF("[vcodec] omx_teardown pipeline 8c\n");
 
    /* Teardown tunnels */
 /* 
@@ -1043,15 +1104,6 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pi)
 */
    //dumpport(pi->video_decode.h,131);
    OERR(OMX_SetupTunnel(pi->video_scheduler.h, 10, NULL, 0));
-
-   DEBUGF("[vcodec] omx_teardown pipeline 10\n");
-
-   /* NOTE: The clock disable doesn't complete until after the video scheduler port is 
-      disabled (but it completes before the video scheduler port disabling completes). */
-   OERR(OMX_SendCommand(pi->clock.h, OMX_CommandPortDisable, 80, NULL));
-   omx_send_command_and_wait(&pi->audio_render, OMX_CommandPortDisable, 101, NULL);
-   OERR(OMX_SendCommand(pi->clock.h, OMX_CommandPortDisable, 81, NULL));
-   omx_send_command_and_wait(&pi->video_scheduler, OMX_CommandPortDisable, 12, NULL);
 
    DEBUGF("[vcodec] omx_teardown pipeline 12b\n");
 
@@ -1084,29 +1136,6 @@ void omx_teardown_pipeline(struct omx_pipeline_t* pi)
                                                 clock 80 -> 101 audio_render
                                             [audio data] -> 100 audio_render
 */
-
-   omx_show_state(&pi->video_decode,130,131,0);
-   dumpport(pi->video_decode.h,131);
-   omx_show_state(&pi->video_scheduler,10,11,12);
-   if (pi->do_deinterlace) { omx_show_state(&pi->image_fx,190,191,0); }
-   omx_show_state(&pi->video_render,90,0,0);
-   omx_show_state(&pi->audio_render,100,101,0);
-   omx_show_state(&pi->clock,80,81,0);
-
-   if (pi->video_decode.port_settings_changed == 2) {
-     //dumpport(pi->video_decode.h,131);
-     omx_send_command_and_wait(&pi->video_decode, OMX_CommandPortDisable, 131, NULL);
-   }
-
-   DEBUGF("[vcodec] omx_teardown pipeline 11\n");
-
-   /* Disable video_decode input port and buffers */
-   //dumpport(pi->video_decode.h,130);
-   omx_send_command_and_wait0(&pi->video_decode, OMX_CommandPortDisable, 130, NULL);
-   DEBUGF("[vcodec] omx_teardown pipeline 6\n");
-   omx_free_buffers(&pi->video_decode, 130);
-   DEBUGF("[vcodec] omx_teardown pipeline 7\n");
-   //omx_send_command_and_wait1(&pi->video_decode, OMX_CommandPortDisable, 130, NULL);
 
    //dumpport(pi->video_decode.h,130);
    if (is_port_enabled(pi->video_decode.h, 130)) {
