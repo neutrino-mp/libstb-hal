@@ -118,7 +118,7 @@ void GLFramebuffer::setup()
 	/* global alpha nontransparent (255) */
 	VC_DISPMANX_ALPHA_T alpha = { DISPMANX_FLAGS_ALPHA_FROM_SOURCE, 255, 0 };
 
-	bcm_host_init();
+	// bcm_host_init(); // already done in AVDec()
 
 	display = vc_dispmanx_display_open(0);
 	ret = vc_dispmanx_display_get_info(display, &info);

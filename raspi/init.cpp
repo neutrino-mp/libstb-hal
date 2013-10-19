@@ -196,6 +196,8 @@ void init_td_api()
 	if (!initialized)
 		lt_debug_init();
 	lt_info("%s begin, initialized=%d, debug=0x%02x\n", __func__, (int)initialized, debuglevel);
+	if (! avdec)
+		avdec = new AVDec();
 	if (! glfb) {
 		int x = 1280, y = 720; /* default OSD FB resolution */
 		/*
@@ -218,8 +220,6 @@ void init_td_api()
 	}
 	if (! thread)
 		thread = new Input();
-	if (! avdec)
-		avdec = new AVDec();
 	initialized = true;
 }
 
