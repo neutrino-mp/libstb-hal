@@ -35,15 +35,14 @@
 #define CHECK(x) if (!(x)) { lt_info("GLFB: %s:%d warning: %s\n", __func__, __LINE__, #x); }
 
 /* TODO: encapsulate this into pdata? */
-static DISPMANX_RESOURCE_HANDLE_T res[2];
-static uint32_t                   vc_img_ptr[2];
+static DISPMANX_RESOURCE_HANDLE_T res;
+static uint32_t                   vc_img_ptr;
 static DISPMANX_UPDATE_HANDLE_T   update;
 static DISPMANX_ELEMENT_HANDLE_T  element;
 static DISPMANX_DISPLAY_HANDLE_T  display;
 static DISPMANX_MODEINFO_T        info;
 static VC_RECT_T                  dst_rect;
 static void *image;
-static int curr_res;
 static int pitch;
 static VC_IMAGE_TYPE_T type = VC_IMAGE_ARGB8888;
 
@@ -78,9 +77,20 @@ GLFramebuffer::GLFramebuffer(int x, int y)
 
 GLFramebuffer::~GLFramebuffer()
 {
+	int ret;
 	goodbye = true;
 	blit(); /* wake up thread */
 	OpenThreads::Thread::join();
+	update = vc_dispmanx_update_start(10);
+	CHECK(update);
+	ret = vc_dispmanx_element_remove(update, element);
+	CHECK(ret == 0);
+	ret = vc_dispmanx_update_submit_sync(update);
+	CHECK(ret == 0);
+	ret = vc_dispmanx_resource_delete(res);
+	CHECK(ret == 0);
+	ret = vc_dispmanx_display_close(display);
+	CHECK(ret == 0);
 }
 
 void GLFramebuffer::run()
@@ -130,12 +140,10 @@ void GLFramebuffer::setup()
 	image = &osd_buf[0];
 	/* initialize to half-transparent grey */
 	memset(image, 0x7f, osd_buf.size());
-	for (int i = 0; i < 2; i++) {
-		res[i] = vc_dispmanx_resource_create(type, width, height, &vc_img_ptr[i]);
-		CHECK(res[i]);
-	}
+	res = vc_dispmanx_resource_create(type, width, height, &vc_img_ptr);
+	CHECK(res);
 	vc_dispmanx_rect_set(&dst_rect, 0, 0, width, height);
-	ret = vc_dispmanx_resource_write_data(res[curr_res], type, pitch, image, &dst_rect);
+	ret = vc_dispmanx_resource_write_data(res, type, pitch, image, &dst_rect);
 	CHECK(ret == 0);
 	update = vc_dispmanx_update_start(10);
 	CHECK(update);
@@ -145,7 +153,7 @@ void GLFramebuffer::setup()
 					  display,
 					  2000 /*layer*/,
 					  &dsp_rect,
-					  res[curr_res],
+					  res,
 					  &src_rect,
 					  DISPMANX_PROTECTION_NONE,
 					  &alpha,
@@ -153,19 +161,15 @@ void GLFramebuffer::setup()
 					  DISPMANX_NO_ROTATE);
 	ret = vc_dispmanx_update_submit_sync(update);
 	CHECK(ret == 0);
-	curr_res = !curr_res;
 }
 
 void GLFramebuffer::blit_osd()
 {
 	int ret;
-	ret = vc_dispmanx_resource_write_data(res[curr_res], type, pitch, image, &dst_rect);
+	ret = vc_dispmanx_resource_write_data(res, type, pitch, image, &dst_rect);
 	CHECK(ret == 0);
 	update = vc_dispmanx_update_start(10);
 	CHECK(update);
-	ret = vc_dispmanx_element_change_source(update, element, res[curr_res]);
-	CHECK(ret == 0);
 	ret = vc_dispmanx_update_submit_sync(update);
 	CHECK(ret == 0);
-	curr_res = !curr_res;
 }
