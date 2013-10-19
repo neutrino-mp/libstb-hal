@@ -191,6 +191,7 @@ AVDec::AVDec()
 AVDec::~AVDec()
 {
 	stop_video();
+	stop_audio();
 
 	if (OMX_Deinit() != OMX_ErrorNone) /* TODO: what now? */
 		lt_info("AVDec::~AVDec: OMX_Deinit() failed!\n");
@@ -287,7 +288,7 @@ void aDec::run()
 	int ret = 0;
 	codec_new_channel(&codecs.acodec);
 	codecs.acodec.first_packet = 1;
-	codecs.acodec.is_running = 1;
+	codecs.acodec.is_running = 0;
 	struct packet_t *packet;
 	/* libavcodec & friends */
 	AVCodec *codec;
@@ -295,11 +296,15 @@ void aDec::run()
 	AVCodecContext *c = NULL;
 	AVInputFormat *inp;
 	AVFrame *frame;
-	uint8_t *inbuf = (uint8_t *)av_malloc(AINBUF_SIZE);
+	uint8_t *inbuf;
 	AVPacket avpkt;
 	char tmp[128] = "unknown";
 
 	curr_pts = 0;
+	bool retry;
+ again:
+	inbuf = (uint8_t *)av_malloc(AINBUF_SIZE);
+	retry = false;
 	av_init_packet(&avpkt);
 	inp = av_find_input_format("mpegts");
 	helper_struct h;
@@ -353,9 +358,12 @@ void aDec::run()
 		int gotframe = 0;
 		if (av_read_frame(avfc, &avpkt) < 0) {
 			lt_info("aDec: av_read_frame < 0\n");
-			usleep(1000);
-			continue;
+			retry = true;
 			break;
+		}
+		if (codec_is_running(&codecs.acodec) != 1) {
+			av_free_packet(&avpkt);
+			continue;
 		}
 		int len = avcodec_decode_audio4(c, frame, &gotframe, &avpkt);
 		if (gotframe && dec_running) {
@@ -374,7 +382,7 @@ void aDec::run()
 			codec_queue_add_item(&codecs.acodec, packet, MSG_PACKET);
 		}
 		if (len != avpkt.size)
-			lt_info("aDec: decoded len: %d pkt.size: %d\n", len, avpkt.size);
+			lt_info("aDec: decoded len: %d pkt.size: %d gotframe %d\n", len, avpkt.size, gotframe);
 		av_free_packet(&avpkt);
 	}
 	lt_info("aDec: decoder loop exited\n");
@@ -391,6 +399,8 @@ void aDec::run()
 		avformat_close_input(&avfc);
 	av_free(pIOCtx->buffer);
 	av_free(pIOCtx);
+	if (retry && dec_running)
+		goto again;
 	lt_info("======================== end audio decoder thread ================================\n");
 }
 
@@ -416,16 +426,21 @@ void vDec::run()
 
 	AVFormatContext *avfc = NULL;
 	AVInputFormat *inp;
-	uint8_t *inbuf = (uint8_t *)av_malloc(VINBUF_SIZE);
+	uint8_t *inbuf;
 	AVPacket avpkt;
 	struct packet_t *packet;
 
+	bool retry;
+ again:
+	retry = false;
 	av_init_packet(&avpkt);
-	inp = av_find_input_format("mpegts");
 	helper_struct h;
 	h.d = this;
 	h.audio = false;
 	dec_running = true;
+ retry_open:
+	inbuf = (uint8_t *)av_malloc(VINBUF_SIZE);
+	inp = av_find_input_format("mpegts");
 	AVIOContext *pIOCtx = avio_alloc_context(inbuf, VINBUF_SIZE, // internal Buffer and its size
 						0,	// bWriteable (1=true,0=false)
 						&h,	// user data; will be passed to our callback functions
@@ -435,12 +450,15 @@ void vDec::run()
 	avfc = avformat_alloc_context();
 	avfc->pb = pIOCtx;
 	avfc->iformat = inp;
-	avfc->probesize = 188*1000;
+	avfc->probesize = 188 * 100;
 
 	if ((ret = avformat_open_input(&avfc, NULL, inp, NULL)) < 0) {
 		lt_info("vDec: Could not open input: %d ctx:%p\n", ret, avfc);
+		if (dec_running)
+			goto retry_open;
 		goto out;
 	}
+#if 0
 	while (avfc->nb_streams < 1)
 	{
 		lt_info("vDec: nb_streams %d, should be 1 => retry\n", avfc->nb_streams);
@@ -455,12 +473,12 @@ void vDec::run()
 	if (avfc->streams[0]->codec->codec_type != AVMEDIA_TYPE_VIDEO)
 		lt_info("vDec: no video codec? 0x%x streams: %d\n",
 				avfc->streams[0]->codec->codec_type, avfc->nb_streams);
-
+#endif
 	lt_info("vDec: decoder loop starts\n");
 	while (dec_running) {
 		if (av_read_frame(avfc, &avpkt) < 0) {
-			usleep(1000);
-			continue;
+			lt_info("vDec: av_read_frame < 0\n");
+			retry = true;
 			break;
 		}
 		if (dec_running) {
@@ -468,7 +486,7 @@ void vDec::run()
 			lt_debug("vDec: pts 0x%" PRIx64 " %3f\n", vpts, vpts/90000.0);
 			packet = (packet_t *)malloc(sizeof(*packet));
 			packet->PTS = av_rescale_q(avpkt.pts, avfc->streams[0]->time_base, omx_timebase);
-			packet->DTS = -1;
+			packet->DTS = av_rescale_q(avpkt.dts, avfc->streams[0]->time_base, omx_timebase);
 			packet->packetlength = avpkt.size;
 			packet->packet = (uint8_t *)malloc(avpkt.size);
 			memcpy(packet->packet, avpkt.data, avpkt.size);
@@ -483,7 +501,8 @@ void vDec::run()
 		avformat_close_input(&avfc);
 	av_free(pIOCtx->buffer);
 	av_free(pIOCtx);
-
+	if (retry && dec_running)
+		goto again;
 	lt_info("======================== end video decoder thread ================================\n");
 }
 
