@@ -179,7 +179,10 @@ AVDec::AVDec()
 	/* TODO: this is hard coded for h264 for now */
 	codecs.vcodec.vcodectype = OMX_VIDEO_CodingAVC;
 	/* TODO: hard coded audio output HDMI */
-	vcodec_omx_init(&codecs.vcodec, &omxpipe, (char *)"hdmi");
+	char *output = getenv("RASPI_AUDIO");
+	if (! output)
+		output = (char *)"hdmi";
+	vcodec_omx_init(&codecs.vcodec, &omxpipe, output);
 	acodec_omx_init(&codecs.acodec, &omxpipe);
 
 	lt_info("AVDec created\n");
