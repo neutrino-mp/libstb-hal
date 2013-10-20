@@ -29,7 +29,7 @@ struct packet_t
 #define MSG_STOP         3
 #define MSG_PAUSE        4
 #define MSG_NEW_CHANNEL  5
-#define MSG_ZOOM         6
+#define MSG_PIG          6
 #define MSG_SET_ASPECT_4_3   7
 #define MSG_SET_ASPECT_16_9  8
 #define MSG_SET_VOLUME   9
@@ -62,6 +62,13 @@ struct codec_t
   int height;
   enum CodecID acodectype;
   int first_packet;
+};
+
+struct pig_params_t{
+  int x;
+  int y;
+  int w;
+  int h;
 };
 
 struct codecs_t {

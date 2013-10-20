@@ -158,6 +158,7 @@ void cVideo::Pig(int x, int y, int w, int h, int, int)
 	pig_y = y;
 	pig_w = w;
 	pig_h = h;
+	avdec->pig(x, y, w, h);
 }
 
 void cVideo::getPictureInfo(int &width, int &height, int &rate)

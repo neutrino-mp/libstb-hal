@@ -99,6 +99,7 @@ class vDec: public Dec, public OpenThreads::Thread
 	public:
 		vDec();
 		~vDec();
+		int set_pig(int x, int y, int w, int h);
 	private:
 		void run();
 };
@@ -250,6 +251,13 @@ int AVDec::set_volume(int vol)
 {
 	if (adec)
 		return adec->set_volume(vol);
+	return -1;
+}
+
+int AVDec::pig(int x, int y, int w, int h)
+{
+	if (vdec)
+		return vdec->set_pig(x, y, w, h);
 	return -1;
 }
 
@@ -412,6 +420,17 @@ int aDec::set_volume(int vol)
 	packet->PTS = volume;
 	packet->buf = NULL;
 	codec_queue_add_item(&codecs.acodec, packet, MSG_SET_VOLUME);
+	return 0;
+}
+
+int vDec::set_pig(int x, int y, int w, int h)
+{
+	struct pig_params_t *pig = (pig_params_t *)malloc(sizeof(struct pig_params_t));
+	pig->x = x;
+	pig->y = y;
+	pig->w = w;
+	pig->h = h;
+	codec_send_message(&codecs.vcodec, MSG_PIG, pig);
 	return 0;
 }
 

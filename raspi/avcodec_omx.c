@@ -36,6 +36,10 @@
 #include "avcodec_omx.h"
 #include "omx_utils.h"
 
+#include "bcm_host.h"
+/* set in glfb.cpp */
+extern DISPMANX_MODEINFO_T output_info;
+
 static void* acodec_omx_thread(struct codec_init_args_t* args)
 {
   struct codec_t* codec = args->codec;
@@ -243,14 +247,19 @@ next_packet:
          omx_set_display_region(pi, 0, 0, 1920, 1080);
          current = NULL;
          goto next_packet;
-       } else if (current->msgtype == MSG_ZOOM) {
-         if ((int)current->data) {
-           fprintf(stderr,"4:3 on!\n");
-           omx_set_display_region(pi, 240, 0, 1440, 1080);
-         } else {
-           fprintf(stderr,"4:3 off\n");
-           omx_set_display_region(pi, 0, 0, 1920, 1080);
+       } else if (current->msgtype == MSG_PIG) {
+         struct pig_params_t *pig = (struct pig_params_t *)current->data;
+         if (pig->x < 0)
+           omx_set_display_region(pi, 0, 0, output_info.width, output_info.height);
+         else {
+           int x = pig->x * output_info.width / 1280;
+           int y = pig->y * output_info.height / 720;
+           int w = pig->w * output_info.width / 1280;
+           int h = pig->h * output_info.height / 720;
+           omx_set_display_region(pi, x, y, w, h);
          }
+         free(pig);
+         free(current);
          current = NULL;
          goto next_packet;
        }
