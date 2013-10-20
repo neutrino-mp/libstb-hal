@@ -99,6 +99,7 @@ class vDec: public Dec, public OpenThreads::Thread
 	public:
 		vDec();
 		~vDec();
+		int set_aspect(int aspect, int mode);
 		int set_pig(int x, int y, int w, int h);
 	private:
 		void run();
@@ -251,6 +252,13 @@ int AVDec::set_volume(int vol)
 {
 	if (adec)
 		return adec->set_volume(vol);
+	return -1;
+}
+
+int AVDec::set_aspect(int aspect, int mode)
+{
+	if (vdec)
+		return vdec->set_aspect(aspect, mode);
 	return -1;
 }
 
@@ -416,6 +424,26 @@ int aDec::set_volume(int vol)
 {
 	long volume = (vol - 100) * 60;
 	codec_send_message(&codecs.acodec, MSG_SET_VOLUME, (void *)volume);
+	return 0;
+}
+
+int vDec::set_aspect(int aspect, int mode)
+{
+	/* 1 = 4:3, 3 = 16:9 */
+	switch (aspect)
+	{
+		case 1:
+			codec_send_message(&codecs.vcodec, MSG_SET_ASPECT_4_3, NULL);
+			break;
+		case 3:
+			codec_send_message(&codecs.vcodec, MSG_SET_ASPECT_16_9, NULL);
+			break;
+		case -1:
+			break;
+		default:
+			lt_info("vDec::set_aspect: invalid aspect(%d)\n", aspect);
+			break;
+	}
 	return 0;
 }
 

@@ -30,5 +30,6 @@ public:
 	int set_volume(int vol);
 	int play_pcm(uint8_t *buffer, int size, int ch = -1, int srate = -1, int bits = -1, int le = -1);
 	int show_picture(const char *filename);
+	int set_aspect(int aspect, int mode);
 	int pig(int x, int y, int w, int h);
 };

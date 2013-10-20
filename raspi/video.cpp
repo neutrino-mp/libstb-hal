@@ -52,7 +52,7 @@ cVideo::~cVideo(void)
 int cVideo::setAspectRatio(int vformat, int cropping)
 {
 	lt_info("%s(%d, %d)\n", __func__, vformat, cropping);
-	return 0;
+	return avdec->set_aspect(vformat, cropping);
 }
 
 int cVideo::getAspectRatio(void)

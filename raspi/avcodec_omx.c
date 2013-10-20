@@ -240,11 +240,14 @@ next_packet:
          is_paused = 1;
          goto next_packet;
        } else if (current->msgtype == MSG_SET_ASPECT_4_3) {
-         omx_set_display_region(pi, 240, 0, 1440, 1080);
+         int center = output_info.width * 3 / 4;
+         omx_set_display_region(pi, (output_info.width - center) / 2, 0, center, output_info.height);
+         codec_queue_free_item(codec,current);
          current = NULL;
          goto next_packet;
        } else if (current->msgtype == MSG_SET_ASPECT_16_9) {
-         omx_set_display_region(pi, 0, 0, 1920, 1080);
+         omx_set_display_region(pi, 0, 0, output_info.width, output_info.height);
+         codec_queue_free_item(codec,current);
          current = NULL;
          goto next_packet;
        } else if (current->msgtype == MSG_PIG) {
