@@ -414,12 +414,8 @@ void aDec::run()
 
 int aDec::set_volume(int vol)
 {
-	struct packet_t *packet;
 	long volume = (vol - 100) * 60;
-	packet = (packet_t *)malloc(sizeof(*packet));
-	packet->PTS = volume;
-	packet->buf = NULL;
-	codec_queue_add_item(&codecs.acodec, packet, MSG_SET_VOLUME);
+	codec_send_message(&codecs.acodec, MSG_SET_VOLUME, (void *)volume);
 	return 0;
 }
 

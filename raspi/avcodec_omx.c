@@ -96,9 +96,9 @@ next_packet:
       pthread_mutex_unlock(&pi->omx_active_mutex);
       goto next_packet;
     } else if (current->msgtype == MSG_SET_VOLUME) {
-      fprintf(stderr, "[acodec] SET_VOLUME %lld\n", current->data->PTS);
-      omx_audio_volume(&pi->audio_render, current->data->PTS);
-      codec_queue_free_item(codec,current);
+      fprintf(stderr, "[acodec] SET_VOLUME %ld\n", (long)current->data);
+      omx_audio_volume(&pi->audio_render, (long)current->data);
+      free(current);
       pthread_mutex_unlock(&pi->omx_active_mutex);
       goto next_packet;
     }
