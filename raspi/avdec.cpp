@@ -511,12 +511,15 @@ int Dec::dmx_read(uint8_t *buf, int buf_size)
 #ifndef EXTRA_BUFFER
 	int tmp, ret = 0, cnt = 0;
 	while (++cnt < 20) {
-		tmp = dmx->Read(buf + ret, buf_size - ret, 10);
+		tmp = dmx->Read(buf + ret, buf_size - ret, 50);
 		if (tmp > 0)
 			ret += tmp;
-		if (ret > buf_size - 512)
+		if (ret >= buf_size)	/* read until buffer is completely full, libavcodec sometimes */
+			break;		/* requests small blocks and does not like 0 returned */
+		if (! dec_running)
 			break;
 	}
+	//printf("read: cnt %2d buf_size %5d ret %5d audio: %d\n", cnt, buf_size, ret, dmx == audioDemux);
 	return ret;
 #else
 	int tmp = 0, ret = 0;
