@@ -40,7 +40,8 @@ static uint32_t                   vc_img_ptr;
 static DISPMANX_UPDATE_HANDLE_T   update;
 static DISPMANX_ELEMENT_HANDLE_T  element;
 static DISPMANX_DISPLAY_HANDLE_T  display;
-static DISPMANX_MODEINFO_T        info;
+/* this is shared with other parts of libstb-hal, thus not static */
+DISPMANX_MODEINFO_T               output_info;
 static VC_RECT_T                  dst_rect;
 static void *image;
 static int pitch;
@@ -131,12 +132,12 @@ void GLFramebuffer::setup()
 	// bcm_host_init(); // already done in AVDec()
 
 	display = vc_dispmanx_display_open(0);
-	ret = vc_dispmanx_display_get_info(display, &info);
+	ret = vc_dispmanx_display_get_info(display, &output_info);
 	CHECK(ret == 0);
 	/* 32bit FB depth, *2 because tuxtxt uses a shadow buffer */
 	osd_buf.resize(pitch * height * 2);
 	lt_info("GLFB: Display is %d x %d, FB is %d x %d, memory size %d\n",
-		info.width, info.height, width, height, osd_buf.size());
+		output_info.width, output_info.height, width, height, osd_buf.size());
 	image = &osd_buf[0];
 	/* initialize to half-transparent grey */
 	memset(image, 0x7f, osd_buf.size());
@@ -148,7 +149,7 @@ void GLFramebuffer::setup()
 	update = vc_dispmanx_update_start(10);
 	CHECK(update);
 	vc_dispmanx_rect_set(&src_rect, 0, 0, width << 16, height << 16);
-	vc_dispmanx_rect_set(&dsp_rect, 0, 0, info.width, info.height);
+	vc_dispmanx_rect_set(&dsp_rect, 0, 0, output_info.width, output_info.height);
 	element = vc_dispmanx_element_add(update,
 					  display,
 					  2000 /*layer*/,
