@@ -46,6 +46,11 @@ static VC_RECT_T                  dst_rect;
 static void *image;
 static int pitch;
 static VC_IMAGE_TYPE_T type = VC_IMAGE_ARGB8888;
+/* second element: black background which covers the framebuffer */
+static DISPMANX_RESOURCE_HANDLE_T bg_res;
+static uint32_t                   bg_img_ptr;
+static DISPMANX_ELEMENT_HANDLE_T  bg_element;
+static VC_IMAGE_TYPE_T bg_type = VC_IMAGE_RGB565;
 
 static OpenThreads::Mutex blit_mutex;
 static OpenThreads::Condition blit_cond;
@@ -86,9 +91,13 @@ GLFramebuffer::~GLFramebuffer()
 	CHECK(update);
 	ret = vc_dispmanx_element_remove(update, element);
 	CHECK(ret == 0);
+	ret = vc_dispmanx_element_remove(update, bg_element);
+	CHECK(ret == 0);
 	ret = vc_dispmanx_update_submit_sync(update);
 	CHECK(ret == 0);
 	ret = vc_dispmanx_resource_delete(res);
+	CHECK(ret == 0);
+	ret = vc_dispmanx_resource_delete(bg_res);
 	CHECK(ret == 0);
 	ret = vc_dispmanx_display_close(display);
 	CHECK(ret == 0);
@@ -138,6 +147,15 @@ void GLFramebuffer::setup()
 	osd_buf.resize(pitch * height * 2);
 	lt_info("GLFB: Display is %d x %d, FB is %d x %d, memory size %d\n",
 		output_info.width, output_info.height, width, height, osd_buf.size());
+	/* black background */
+	uint16_t bg[16]; /* 16 bpp, 16x1 bitmap. smaller is not useful, need pitch 32 anyway  */
+	memset(bg, 0, sizeof(bg));
+	bg_res = vc_dispmanx_resource_create(bg_type, 16, 1, &bg_img_ptr);
+	CHECK(bg_res);
+	vc_dispmanx_rect_set(&dst_rect, 0, 0, 16, 1);
+	ret = vc_dispmanx_resource_write_data(bg_res, bg_type, 16 * sizeof(uint16_t), bg, &dst_rect);
+	CHECK(ret == 0);
+	/* framebuffer */
 	image = &osd_buf[0];
 	/* initialize to half-transparent grey */
 	memset(image, 0x7f, osd_buf.size());
@@ -148,6 +166,20 @@ void GLFramebuffer::setup()
 	CHECK(ret == 0);
 	update = vc_dispmanx_update_start(10);
 	CHECK(update);
+	/* background image to cover the linux fb */
+	vc_dispmanx_rect_set(&src_rect, 0, 0, 16 << 16, 1 << 16);
+	vc_dispmanx_rect_set(&dsp_rect, 0, 0, output_info.width, output_info.height);
+	bg_element = vc_dispmanx_element_add(update,
+					  display,
+					  0, /* bg layer, linux framebuffer is -127 */
+					  &dsp_rect,
+					  bg_res,
+					  &src_rect,
+					  DISPMANX_PROTECTION_NONE,
+					  &alpha,
+					  NULL,
+					  DISPMANX_NO_ROTATE);
+	/* our real framebuffer */
 	vc_dispmanx_rect_set(&src_rect, 0, 0, width << 16, height << 16);
 	vc_dispmanx_rect_set(&dsp_rect, 0, 0, output_info.width, output_info.height);
 	element = vc_dispmanx_element_add(update,
