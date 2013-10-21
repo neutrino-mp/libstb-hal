@@ -32,4 +32,5 @@ public:
 	int show_picture(const char *filename);
 	int set_aspect(int aspect, int mode);
 	int pig(int x, int y, int w, int h);
+	int set_videoformat(int format);
 };

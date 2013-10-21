@@ -175,7 +175,7 @@ void cVideo::SetSyncMode(AVSYNC_TYPE)
 int cVideo::SetStreamType(VIDEO_FORMAT v)
 {
 	v_format = v;
-	return 0;
+	return avdec->set_videoformat(v);
 }
 
 bool cVideo::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_video, bool get_osd, bool scale_to_video)

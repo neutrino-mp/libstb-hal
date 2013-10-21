@@ -60,6 +60,7 @@ static AVRational omx_timebase = {1,1000000};
 
 static struct codecs_t codecs;
 static struct omx_pipeline_t omxpipe;
+static OMX_VIDEO_CODINGTYPE vcodectype;
 
 extern cDemux *audioDemux;
 extern cDemux *videoDemux;
@@ -269,6 +270,22 @@ int AVDec::pig(int x, int y, int w, int h)
 	return -1;
 }
 
+int AVDec::set_videoformat(int format)
+{
+	lt_info("AVDec::set_videoformat(%d)\n", format);
+	switch (format) {
+		case 0:
+			vcodectype = OMX_VIDEO_CodingMPEG2;
+			break;
+		case 1:
+			vcodectype = OMX_VIDEO_CodingAVC;
+			break;
+		default:
+			return -1;
+	}
+	return 0;
+}
+
 typedef struct {
 	Dec *d;
 	bool audio;
@@ -463,6 +480,7 @@ void vDec::run()
 	hal_set_threadname("hal:vdec");
 	lt_info("====================== start video decoder thread ================================\n");
 	int ret = 0;
+	codecs.vcodec.vcodectype = vcodectype;
 	codec_new_channel(&codecs.vcodec);
 	codecs.vcodec.first_packet = 1;
 	codecs.vcodec.is_running = 1;
