@@ -75,6 +75,10 @@ void cPlayback::GetChapters(std::vector<int> &positions, std::vector<std::string
 	titles.clear();
 }
 
+void cPlayback::RequestAbort(void)
+{
+}
+
 cPlayback::cPlayback(int /*num*/)
 {
 	printf("%s:%s\n", FILENAME, __func__);

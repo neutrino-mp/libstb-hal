@@ -594,6 +594,10 @@ void cPlayback::GetChapters(std::vector<int> &positions, std::vector<std::string
 	titles.clear();
 }
 
+void cPlayback::RequestAbort(void)
+{
+}
+
 off_t cPlayback::seek_to_pts(int64_t pts)
 {
 	off_t newpos = curr_pos;

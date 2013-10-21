@@ -504,6 +504,10 @@ void cPlayback::GetChapters(std::vector<int> &positions, std::vector<std::string
 	titles.clear();
 }
 
+void cPlayback::RequestAbort(void)
+{
+}
+
 cPlayback::cPlayback(int /*num*/)
 {
 	lt_info("%s: constructor\n", __func__);
