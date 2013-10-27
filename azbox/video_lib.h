@@ -2,7 +2,7 @@
 #define _VIDEO_TD_H
 
 #include <linux/dvb/video.h>
-#include "../common/cs_types.h"
+#include <cs_types.h>
 #include "dmx_lib.h"
 
 typedef enum {

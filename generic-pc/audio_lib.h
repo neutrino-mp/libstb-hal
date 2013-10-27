@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 #include <OpenThreads/Thread>
-#include "../common/cs_types.h"
+#include <cs_types.h>
 
 typedef enum
 {

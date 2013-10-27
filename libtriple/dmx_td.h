@@ -8,7 +8,7 @@ extern "C" {
 #include <sys/ioctl.h>
 #include <hardware/xp/xp_osd_user.h>
 }
-#include "../common/cs_types.h"
+#include <cs_types.h>
 #if defined DMX_FILTER_SIZE
 #undef DMX_FILTER_SIZE
 #endif

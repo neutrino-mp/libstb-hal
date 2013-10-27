@@ -5,7 +5,7 @@
 #include <OpenThreads/Mutex>
 #include <vector>
 #include <linux/dvb/video.h>
-#include "../common/cs_types.h"
+#include <cs_types.h>
 #include "dmx_lib.h"
 extern "C" {
 #include <libavutil/rational.h>

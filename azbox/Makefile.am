@@ -1,7 +1,8 @@
 noinst_LTLIBRARIES = libazbox.la
 
 AM_CPPFLAGS = \
-	-I$(top_srcdir)/common
+	-I$(top_srcdir)/common \
+	-I$(top_srcdir)/include
 
 AM_CXXFLAGS = -fno-rtti -fno-exceptions -fno-strict-aliasing
 AM_LDFLAGS = -lpthread

@@ -3,7 +3,7 @@
 #ifndef _AUDIO_LIB_H_
 #define _AUDIO_LIB_H_
 
-#include "../common/cs_types.h"
+#include <cs_types.h>
 
 typedef enum
 {

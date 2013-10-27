@@ -6,7 +6,7 @@
 #include <inttypes.h>
 #include <sys/ioctl.h>
 #include <linux/dvb/dmx.h>
-#include "../common/cs_types.h"
+#include <cs_types.h>
 
 #define MAX_DMX_UNITS 4
 
