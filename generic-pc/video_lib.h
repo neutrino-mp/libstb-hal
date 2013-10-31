@@ -1,15 +1,26 @@
-#ifndef _VIDEO_TD_H
-#define _VIDEO_TD_H
+/*
+	Copyright 2010-2013 Stefan Seyfried <seife@tuxboxcvs.slipkontur.de>
 
-#include <OpenThreads/Thread>
-#include <OpenThreads/Mutex>
+	This program is free software; you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation; either version 2 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+
+#ifndef _VIDEO_LIB_H
+#define _VIDEO_LIB_H
+
 #include <vector>
-#include <linux/dvb/video.h>
 #include <cs_types.h>
-#include "dmx_lib.h"
-extern "C" {
-#include <libavutil/rational.h>
-}
 
 typedef enum {
 	ANALOG_SD_RGB_CINCH = 0x00,
@@ -26,11 +37,25 @@ typedef enum {
 
 typedef enum {
 	VIDEO_FORMAT_MPEG2 = 0,
-	VIDEO_FORMAT_MPEG4,
+	VIDEO_FORMAT_MPEG4, /* H264 */
 	VIDEO_FORMAT_VC1,
 	VIDEO_FORMAT_JPEG,
 	VIDEO_FORMAT_GIF,
-	VIDEO_FORMAT_PNG
+	VIDEO_FORMAT_PNG,
+	VIDEO_FORMAT_DIVX,/* DIVX 3.11 */
+	VIDEO_FORMAT_MPEG4PART2,/* MPEG4 SVH, MPEG4 SP, MPEG4 ASP, DIVX4,5,6 */
+	VIDEO_FORMAT_REALVIDEO8,
+	VIDEO_FORMAT_REALVIDEO9,
+	VIDEO_FORMAT_ON2_VP6,
+	VIDEO_FORMAT_ON2_VP8,
+	VIDEO_FORMAT_SORENSON_SPARK,
+	VIDEO_FORMAT_H263,
+	VIDEO_FORMAT_H263_ENCODER,
+	VIDEO_FORMAT_H264_ENCODER,
+	VIDEO_FORMAT_MPEG4PART2_ENCODER,
+	VIDEO_FORMAT_AVS,
+	VIDEO_FORMAT_VIP656,
+	VIDEO_FORMAT_UNSUPPORTED
 } VIDEO_FORMAT;
 
 typedef enum {
@@ -96,8 +121,9 @@ typedef enum {
 	VIDEO_STD_1080P30,
 	VIDEO_STD_1080P24,
 	VIDEO_STD_1080P25,
+	VIDEO_STD_1080P50,
+	VIDEO_STD_1080P60,
 	VIDEO_STD_AUTO,
-	VIDEO_STD_1080P50,	/* SPARK only */
 	VIDEO_STD_MAX
 } VIDEO_STD;
 
@@ -118,34 +144,10 @@ typedef enum
 	VIDEO_CONTROL_MAX = VIDEO_CONTROL_SHARPNESS
 } VIDEO_CONTROL;
 
+class cDemux;
 
-#define VDEC_MAXBUFS 0x30
-class cVideo : public OpenThreads::Thread
+class cVideo
 {
-	friend class GLFramebuffer;
-	friend class cDemux;
-	private:
-		/* called from GL thread */
-		class SWFramebuffer : public std::vector<unsigned char>
-		{
-		public:
-			SWFramebuffer() : mWidth(0), mHeight(0) {}
-			void width(int w) { mWidth = w; }
-			void height(int h) { mHeight = h; }
-			void pts(uint64_t p) { mPts = p; }
-			void AR(AVRational a) { mAR = a; }
-			int width() const { return mWidth; }
-			int height() const { return mHeight; }
-			int64_t pts() const { return mPts; }
-			AVRational AR() const { return mAR; }
-		private:
-			int mWidth;
-			int mHeight;
-			int64_t mPts;
-			AVRational mAR;
-		};
-		int buf_in, buf_out, buf_num;
-		int64_t GetPTS(void);
 	public:
 		/* constructor & destructor */
 		cVideo(int mode, void *, void *, unsigned int unit = 0);
@@ -160,7 +162,7 @@ class cVideo : public OpenThreads::Thread
 		int setAspectRatio(int aspect, int mode);
 
 		/* cropping mode */
-		int setCroppingMode(int x = 0 /*vidDispMode_t x = VID_DISPMODE_NORM*/);
+		int setCroppingMode(void);
 
 		/* get play state */
 		int getPlayState(void);
@@ -197,24 +199,8 @@ class cVideo : public OpenThreads::Thread
 		int  StopVBI(void) { return 0; };
 		void SetDemux(cDemux *dmx);
 		bool GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_video = true, bool get_osd = false, bool scale_to_video = false);
-		SWFramebuffer *getDecBuf(void);
 	private:
-		void run();
-		SWFramebuffer buffers[VDEC_MAXBUFS];
-		int dec_w, dec_h;
-		int dec_r;
-		bool w_h_changed;
-		bool thread_running;
-		VIDEO_FORMAT v_format;
-		VIDEO_STD v_std;
-		OpenThreads::Mutex buf_m;
-		DISPLAY_AR display_aspect;
-		DISPLAY_AR_MODE display_crop;
-		int output_h;
-		int pig_x;
-		int pig_y;
-		int pig_w;
-		int pig_h;
+		void *pdata; /* not yet used */
 };
 
 #endif

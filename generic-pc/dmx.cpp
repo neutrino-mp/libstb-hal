@@ -36,8 +36,8 @@
 #include "lt_debug.h"
 
 /* needed for getSTC :-( */
-#include "video_lib.h"
-extern cVideo *videoDecoder;
+#include "video_priv.h"
+extern VDec *vdec;
 
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_DEMUX, this, args)
 #define lt_info(args...) _lt_info(TRIPLE_DEBUG_DEMUX, this, args)
@@ -478,8 +478,8 @@ void cDemux::removePid(unsigned short Pid)
 void cDemux::getSTC(int64_t * STC)
 {
 	int64_t pts = 0;
-	if (videoDecoder)
-		pts = videoDecoder->GetPTS();
+	if (vdec)
+		pts = vdec->GetPTS();
 	*STC = pts;
 }
 

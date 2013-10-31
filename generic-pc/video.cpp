@@ -40,15 +40,17 @@ extern "C" {
 
 #include "video_lib.h"
 #include "dmx_lib.h"
-#include "glfb.h"
+#include "glfb_priv.h"
+#include "video_priv.h"
 #include "lt_debug.h"
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_VIDEO, this, args)
 #define lt_info(args...) _lt_info(TRIPLE_DEBUG_VIDEO, this, args)
 #define lt_info_c(args...) _lt_info(TRIPLE_DEBUG_VIDEO, NULL, args)
 
+VDec *vdec = NULL;
 cVideo *videoDecoder = NULL;
 extern cDemux *videoDemux;
-extern GLFramebuffer *glfb;
+extern GLFbPC *glfb_priv;
 int system_rev = 0;
 
 extern bool HAL_nodec;
@@ -68,6 +70,11 @@ static const AVRational aspect_ratios[6] = {
 cVideo::cVideo(int, void *, void *, unsigned int)
 {
 	lt_debug("%s\n", __func__);
+	vdec = new VDec();
+}
+
+VDec::VDec()
+{
 	av_register_all();
 	if (!HAL_nodec)
 		dmxbuf = (uint8_t *)malloc(DMX_BUF_SZ);
@@ -84,14 +91,27 @@ cVideo::cVideo(int, void *, void *, unsigned int)
 	v_format = VIDEO_FORMAT_MPEG2;
 }
 
+VDec::~VDec(void)
+{
+	free(dmxbuf);
+}
+
 cVideo::~cVideo(void)
 {
 	Stop();
 	/* ouch :-( */
-	videoDecoder = NULL;
+//	videoDecoder = NULL;
+	delete vdec;
+//	vdec = NULL;
 }
 
+
 int cVideo::setAspectRatio(int vformat, int cropping)
+{
+	return vdec->setAspectRatio(vformat, cropping);
+}
+
+int VDec::setAspectRatio(int vformat, int cropping)
 {
 	lt_info("%s(%d, %d)\n", __func__, vformat, cropping);
 	if (vformat >= 0)
@@ -99,11 +119,16 @@ int cVideo::setAspectRatio(int vformat, int cropping)
 	if (cropping >= 0)
 		display_crop = (DISPLAY_AR_MODE) cropping;
 	if (display_aspect < DISPLAY_AR_RAW) /* don't know what to do with this */
-		glfb->setOutputFormat(aspect_ratios[display_aspect], output_h, display_crop);
+		glfb_priv->setOutputFormat(aspect_ratios[display_aspect], output_h, display_crop);
 	return 0;
 }
 
 int cVideo::getAspectRatio(void)
+{
+	return vdec->getAspectRatio();
+}
+
+int VDec::getAspectRatio(void)
 {
 	buf_m.lock();
 	int ret = 0;
@@ -132,12 +157,22 @@ int cVideo::getAspectRatio(void)
 	return ret;
 }
 
-int cVideo::setCroppingMode(int)
+int cVideo::setCroppingMode(void)
 {
 	return 0;
 }
 
 int cVideo::Start(void *, unsigned short, unsigned short, void *)
+{
+	return vdec->Start();
+}
+
+int cVideo::Stop(bool b)
+{
+	return vdec->Stop(b);
+}
+
+int VDec::Start()
 {
 	lt_debug("%s running %d >\n", __func__, thread_running);
 	if (!thread_running && !HAL_nodec)
@@ -146,7 +181,7 @@ int cVideo::Start(void *, unsigned short, unsigned short, void *)
 	return 0;
 }
 
-int cVideo::Stop(bool)
+int VDec::Stop(bool)
 {
 	lt_debug("%s running %d >\n", __func__, thread_running);
 	if (thread_running) {
@@ -163,6 +198,11 @@ int cVideo::setBlank(int)
 }
 
 int cVideo::SetVideoSystem(int system, bool)
+{
+	return vdec->SetVideoSystem(system);
+}
+
+int VDec::SetVideoSystem(int system)
 {
 	int h;
 	switch(system)
@@ -195,16 +235,16 @@ int cVideo::SetVideoSystem(int system, bool)
 			lt_info("%s: unhandled value %d\n", __func__, system);
 			return 0;
 	}
-	v_std = (VIDEO_STD) system;
+//	v_std = (VIDEO_STD) system;
 	output_h = h;
 	if (display_aspect < DISPLAY_AR_RAW) /* don't know what to do with this */
-		glfb->setOutputFormat(aspect_ratios[display_aspect], output_h, display_crop);
+		glfb_priv->setOutputFormat(aspect_ratios[display_aspect], output_h, display_crop);
 	return 0;
 }
 
 int cVideo::getPlayState(void)
 {
-	return VIDEO_PLAYING;
+	return 1;
 }
 
 void cVideo::SetVideoMode(analog_mode_t)
@@ -212,6 +252,11 @@ void cVideo::SetVideoMode(analog_mode_t)
 }
 
 void cVideo::ShowPicture(const char *fname)
+{
+	vdec->ShowPicture(fname);
+}
+
+void VDec::ShowPicture(const char *fname)
 {
 	lt_info("%s(%s)\n", __func__, fname);
 	if (access(fname, R_OK))
@@ -328,6 +373,11 @@ int cVideo::getBlank(void)
 
 void cVideo::Pig(int x, int y, int w, int h, int, int)
 {
+	vdec->Pig(x, y, w, h);
+}
+
+void VDec::Pig(int x, int y, int w, int h)
+{
 	pig_x = x;
 	pig_y = y;
 	pig_w = w;
@@ -336,9 +386,14 @@ void cVideo::Pig(int x, int y, int w, int h, int, int)
 
 void cVideo::getPictureInfo(int &width, int &height, int &rate)
 {
-	width = dec_w;
-	height = dec_h;
-	rate = dec_r;
+	vdec->getPictureInfo(width, height, rate);
+}
+
+void VDec::getPictureInfo(int &width, int &height, int &rate)
+{
+	width = vdec->dec_w;
+	height = vdec->dec_h;
+	rate = vdec->dec_r;
 }
 
 void cVideo::SetSyncMode(AVSYNC_TYPE)
@@ -347,11 +402,16 @@ void cVideo::SetSyncMode(AVSYNC_TYPE)
 
 int cVideo::SetStreamType(VIDEO_FORMAT v)
 {
+	return vdec->SetStreamType(v);
+}
+
+int VDec::SetStreamType(VIDEO_FORMAT v)
+{
 	v_format = v;
 	return 0;
 }
 
-cVideo::SWFramebuffer *cVideo::getDecBuf(void)
+VDec::SWFramebuffer *VDec::getDecBuf(void)
 {
 	buf_m.lock();
 	if (buf_num == 0) {
@@ -390,7 +450,7 @@ static int my_read(void *, uint8_t *buf, int buf_size)
 	return tmp;
 }
 
-void cVideo::run(void)
+void VDec::run(void)
 {
 	lt_info("====================== start decoder thread ================================\n");
 	AVCodec *codec;
@@ -507,7 +567,10 @@ void cVideo::run(void)
 				f->width(c->width);
 				f->height(c->height);
 				int64_t vpts = av_frame_get_best_effort_timestamp(frame);
+				/* a/v delay determined experimentally :-) */
 				if (v_format == VIDEO_FORMAT_MPEG2)
+					vpts += 90000*4/10; /* 400ms */
+				else
 					vpts += 90000*3/10; /* 300ms */
 				f->pts(vpts);
 				AVRational a = av_guess_sample_aspect_ratio(avfc, avfc->streams[0], frame);
@@ -573,7 +636,7 @@ static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int 
 	return ret;
 }
 
-bool cVideo::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_video, bool get_osd, bool scale_to_video)
+bool VDec::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_video, bool get_osd, bool scale_to_video)
 {
 	lt_info("%s: data 0x%p xres %d yres %d vid %d osd %d scale %d\n",
 		__func__, data, xres, yres, get_video, get_osd, scale_to_video);
@@ -581,8 +644,8 @@ bool cVideo::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool ge
 	std::vector<unsigned char> *osd = NULL;
 	std::vector<unsigned char> s_osd; /* scaled OSD */
 	int vid_w = 0, vid_h = 0;
-	int osd_w = glfb->getOSDWidth();
-	int osd_h = glfb->getOSDHeight();
+	int osd_w = glfb_priv->getOSDWidth();
+	int osd_h = glfb_priv->getOSDHeight();
 	xres = osd_w;
 	yres = osd_h;
 	if (get_video) {
@@ -601,7 +664,7 @@ bool cVideo::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool ge
 		}
 	}
 	if (get_osd)
-		osd = glfb->getOSDBuffer();
+		osd = glfb_priv->getOSDBuffer();
 	unsigned int need = avpicture_get_size(PIX_FMT_RGB32, xres, yres);
 	data = (unsigned char *)realloc(data, need); /* will be freed by caller */
 	if (data == NULL)	/* out of memory? */
@@ -651,7 +714,7 @@ bool cVideo::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool ge
 	return true;
 }
 
-int64_t cVideo::GetPTS(void)
+int64_t VDec::GetPTS(void)
 {
 	int64_t pts = 0;
 	buf_m.lock();
