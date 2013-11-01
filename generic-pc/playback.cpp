@@ -34,7 +34,7 @@ bool cPlayback::SelectSubtitles(int pid)
 
 bool cPlayback::SetSpeed(int speed)
 {
-	printf("%s:%s playing %d speed %d\n", FILENAME, __func__, playing, speed);
+	printf("%s:%s speed %d\n", FILENAME, __func__, speed);
 	return true;
 }
 

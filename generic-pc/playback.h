@@ -12,8 +12,6 @@ typedef enum {
 
 class cPlayback
 {
-	private:
-		bool playing;
 	public:
 		bool Open(playmode_t PlayMode);
 		void Close(void);
@@ -32,6 +30,8 @@ class cPlayback
 		//
 		cPlayback(int num = 0);
 		~cPlayback();
+	private:
+		void *pdata; /* not yet used */
 };
 
 #endif
