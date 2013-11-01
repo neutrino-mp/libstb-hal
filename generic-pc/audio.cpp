@@ -23,54 +23,50 @@
 #include <cstdlib>
 
 #include "audio_lib.h"
+#include "audio_priv.h"
 #include "dmx_lib.h"
 #include "lt_debug.h"
 
 #define lt_debug(args...) _lt_debug(HAL_DEBUG_AUDIO, this, args)
 #define lt_info(args...) _lt_info(HAL_DEBUG_AUDIO, this, args)
 
-#include <OpenThreads/Thread>
-
-extern "C" {
-#include <libavformat/avformat.h>
-#include <libavutil/opt.h>
-#include <libavutil/samplefmt.h>
-#include <libswresample/swresample.h>
-#include <ao/ao.h>
-}
 /* ffmpeg buf 2k */
 #define INBUF_SIZE 0x0800
 /* my own buf 16k */
 #define DMX_BUF_SZ 0x4000
 
 cAudio * audioDecoder = NULL;
+ADec *adec = NULL;
+
 extern cDemux *audioDemux;
-static uint8_t *dmxbuf = NULL;
-static int bufpos;
 
 extern bool HAL_nodec;
 
-static cAudio *gThiz = NULL;
-
-static ao_device *adevice = NULL;
-static ao_sample_format sformat;
-
-static AVCodecContext *c= NULL;
-
 cAudio::cAudio(void *, void *, void *)
 {
+	adec = new ADec();
+}
+cAudio::~cAudio(void)
+{
+	delete adec;
+}
+
+ADec::ADec(void)
+{
+	adevice = NULL;
+	dmxbuf = NULL;
+	bufpos = 0;
+	c = NULL;
 	thread_started = false;
 	if (!HAL_nodec)
 		dmxbuf = (uint8_t *)malloc(DMX_BUF_SZ);
 	bufpos = 0;
 	curr_pts = 0;
-	gThiz = this;
 	ao_initialize();
 }
 
-cAudio::~cAudio(void)
+ADec::~ADec(void)
 {
-	closeDevice();
 	free(dmxbuf);
 	if (adevice)
 		ao_close(adevice);
@@ -78,19 +74,19 @@ cAudio::~cAudio(void)
 	ao_shutdown();
 }
 
-void cAudio::openDevice(void)
+int cAudio::mute(void)
 {
-	lt_debug("%s\n", __func__);
+	return SetMute(true);
 }
 
-void cAudio::closeDevice(void)
+int cAudio::unmute(void)
 {
-	lt_debug("%s\n", __func__);
+	return SetMute(false);
 }
 
-int cAudio::do_mute(bool enable, bool remember)
+int cAudio::SetMute(bool enable)
 {
-	lt_debug("%s(%d, %d)\n", __func__, enable, remember);
+	lt_debug("%s(%d)\n", __func__, enable);
 	return 0;
 }
 
@@ -102,20 +98,30 @@ int cAudio::setVolume(unsigned int left, unsigned int right)
 
 int cAudio::Start(void)
 {
+	return adec->Start();
+}
+
+int cAudio::Stop(void)
+{
+	return adec->Stop();
+}
+
+int ADec::Start(void)
+{
 	lt_debug("%s >\n", __func__);
 	if (! HAL_nodec)
-		OpenThreads::Thread::start();
+		start();
 	lt_debug("%s <\n", __func__);
 	return 0;
 }
 
-int cAudio::Stop(void)
+int ADec::Stop(void)
 {
 	lt_debug("%s >\n", __func__);
 	if (thread_started)
 	{
 		thread_started = false;
-		OpenThreads::Thread::join();
+		join();
 	}
 	lt_debug("%s <\n", __func__);
 	return 0;
@@ -143,6 +149,11 @@ int cAudio::setChannel(int /*channel*/)
 
 int cAudio::PrepareClipPlay(int ch, int srate, int bits, int le)
 {
+	return adec->PrepareClipPlay(ch, srate, bits, le);
+}
+
+int ADec::PrepareClipPlay(int ch, int srate, int bits, int le)
+{
 	lt_debug("%s ch %d srate %d bits %d le %d adevice %p\n", __func__, ch, srate, bits, le, adevice);;
 	int driver;
 	int byte_format = le ? AO_FMT_LITTLE : AO_FMT_BIG;
@@ -168,6 +179,11 @@ int cAudio::PrepareClipPlay(int ch, int srate, int bits, int le)
 };
 
 int cAudio::WriteClip(unsigned char *buffer, int size)
+{
+	return adec->WriteClip(buffer, size);
+}
+
+int ADec::WriteClip(unsigned char *buffer, int size)
 {
 	lt_debug("cAudio::%s buf 0x%p size %d\n", __func__, buffer, size);
 	if (!adevice) {
@@ -195,6 +211,11 @@ int cAudio::StopClip()
 };
 
 void cAudio::getAudioInfo(int &type, int &layer, int &freq, int &bitrate, int &mode)
+{
+	adec->getAudioInfo(type, layer, freq, bitrate, mode);
+}
+
+void ADec::getAudioInfo(int &type, int &layer, int &freq, int &bitrate, int &mode)
 {
 	type = 0;
 	layer = 0;	/* not used */
@@ -269,17 +290,12 @@ void cAudio::EnableAnalogOut(bool enable)
 	lt_debug("%s %d\n", __func__, enable);
 };
 
-void cAudio::setBypassMode(bool disable)
-{
-	lt_debug("%s %d\n", __func__, disable);
-}
-
 static int _my_read(void *, uint8_t *buf, int buf_size)
 {
-	return gThiz->my_read(buf, buf_size);
+	return adec->my_read(buf, buf_size);
 }
 
-int cAudio::my_read(uint8_t *buf, int buf_size)
+int ADec::my_read(uint8_t *buf, int buf_size)
 {
 	int tmp = 0;
 	if (audioDecoder && bufpos < DMX_BUF_SZ - 4096) {
@@ -306,7 +322,7 @@ int cAudio::my_read(uint8_t *buf, int buf_size)
 	return tmp;
 }
 
-void cAudio::run()
+void ADec::run()
 {
 	lt_info("====================== start decoder thread ================================\n");
 	/* libavcodec & friends */

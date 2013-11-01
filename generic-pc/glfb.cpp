@@ -39,7 +39,7 @@
 #include <linux/input.h>
 #include "glfb_priv.h"
 #include "video_priv.h"
-#include "audio_lib.h"
+#include "audio_priv.h"
 
 #include "lt_debug.h"
 
@@ -50,7 +50,7 @@
 
 
 extern VDec *vdec;
-extern cAudio *audioDecoder;
+extern ADec *adec;
 
 /* the private class that does stuff only needed inside libstb-hal.
  * is used e.g. by cVideo... */
@@ -596,8 +596,8 @@ void GLFbPC::bltDisplayBuffer()
 	 * better this than nothing... :-) */
 	int64_t apts = 0;
 	int64_t vpts = buf->pts();
-	if (audioDecoder)
-		apts = audioDecoder->getPts();
+	if (adec)
+		apts = adec->getPts();
 	if (apts != last_apts) {
 		int rate, dummy1, dummy2;
 		if (apts < vpts)
