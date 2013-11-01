@@ -43,23 +43,24 @@ cAudio::~cAudio(void)
 	lt_debug("%s\n", __func__);
 }
 
-void cAudio::openDevice(void)
+int cAudio::mute(void)
 {
-	lt_debug("%s\n", __func__);
+	return SetMute(true);
 }
 
-void cAudio::closeDevice(void)
+int cAudio::unmute(void)
 {
-	lt_debug("%s\n", __func__);
+	return SetMute(false);
 }
 
-int cAudio::do_mute(bool enable, bool remember)
+int cAudio::SetMute(bool enable)
 {
-	lt_debug("%s(%d, %d)\n", __func__, enable, remember);
+	lt_debug("%s(%d)\n", __func__, enable);
 	if (enable)
 		avdec->set_volume(0);
 	else
 		avdec->set_volume(volume);
+	muted = enable;
 	return 0;
 }
 
@@ -160,8 +161,3 @@ void cAudio::EnableAnalogOut(bool enable)
 {
 	lt_debug("%s %d\n", __func__, enable);
 };
-
-void cAudio::setBypassMode(bool disable)
-{
-	lt_debug("%s %d\n", __func__, disable);
-}

@@ -39,43 +39,21 @@ typedef enum
 
 class cAudio
 {
-	friend class cPlayback;
-	private:
-		int fd;
-		bool Muted;
-
-		int clipfd; /* for pcm playback */
-		int mixer_fd;  /* if we are using the OSS mixer */
-		int mixer_num; /* oss mixer to use, if any */
-
-		AUDIO_FORMAT	StreamType;
-		AUDIO_SYNC_MODE    SyncMode;
-		bool started;
-		bool thread_started;
-
-		int volume;
-		int64_t curr_pts;
-
-		void openDevice(void);
-		void closeDevice(void);
-
-		int do_mute(bool enable, bool remember);
-		void setBypassMode(bool disable);
 	public:
 		/* construct & destruct */
 		cAudio(void *, void *, void *);
 		~cAudio(void);
-		int64_t getPts() { return curr_pts; }
 
 		void *GetHandle() { return NULL; };
 		/* shut up */
-		int mute(bool remember = true) { return do_mute(true, remember); };
-		int unmute(bool remember = true) { return do_mute(false, remember); };
+		int mute(void);
+		int unmute(void);
+		int SetMute(bool enable);
 
 		/* volume, min = 0, max = 255 */
 		int setVolume(unsigned int left, unsigned int right);
 		int getVolume(void) { return volume;}
-		bool getMuteStatus(void) { return Muted; };
+		bool getMuteStatus(void) { return muted; };
 
 		/* start and stop audio */
 		int Start(void);
@@ -96,7 +74,10 @@ class cAudio
 		void SetSpdifDD(bool enable);
 		void ScheduleMute(bool On);
 		void EnableAnalogOut(bool enable);
-		int my_read(uint8_t *buf, int buf_size);
+	private:
+		bool muted;
+		int volume;
+		void *pdata;
 };
 
 #endif
