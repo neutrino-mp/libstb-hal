@@ -34,7 +34,7 @@
 #include <map>
 #include <OpenThreads/Thread>
 
-#include "init_lib.h"
+#include "init_td.h"
 #include "lt_debug.h"
 #include "glfb.h"
 #include "avdec.h"
