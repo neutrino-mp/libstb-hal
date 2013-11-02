@@ -3,7 +3,6 @@
 
 #include <linux/dvb/video.h>
 #include <cs_types.h>
-#include "dmx_lib.h"
 
 typedef enum {
 	ANALOG_SD_RGB_CINCH = 0x00,
@@ -112,6 +111,7 @@ typedef enum
 	VIDEO_CONTROL_MAX = VIDEO_CONTROL_SHARPNESS
 } VIDEO_CONTROL;
 
+class cDemux;
 
 class cVideo
 {

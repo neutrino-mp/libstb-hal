@@ -4,7 +4,6 @@
 #include <vector>
 #include <linux/dvb/video.h>
 #include <cs_types.h>
-#include "dmx_lib.h"
 extern "C" {
 #include <libavutil/rational.h>
 }
@@ -116,6 +115,7 @@ typedef enum
 	VIDEO_CONTROL_MAX = VIDEO_CONTROL_SHARPNESS
 } VIDEO_CONTROL;
 
+class cDemux;
 
 #define VDEC_MAXBUFS 0x30
 class cVideo

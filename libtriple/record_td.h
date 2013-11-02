@@ -2,7 +2,6 @@
 #define __RECORD_TD_H
 
 #include <pthread.h>
-#include "dmx_td.h"
 
 #define REC_STATUS_OK 0
 #define REC_STATUS_SLOW 1
@@ -17,6 +16,7 @@ typedef enum {
 	RECORD_FAILED_MEMORY	/* out of memory */
 } record_state_t;
 
+class cDemux;
 class cRecord
 {
 	private:

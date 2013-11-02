@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include "record_td.h"
+#include "dmx_hal.h"
 #include "lt_debug.h"
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_RECORD, this, args)
 #define lt_info(args...) _lt_info(TRIPLE_DEBUG_RECORD, this, args)
@@ -121,7 +122,7 @@ bool cRecord::ChangePids(unsigned short /*vpid*/, unsigned short *apids, int num
 		lt_info("%s: DMX = NULL\n", __func__);
 		return false;
 	}
-	pids = dmx->getPesPids();
+	pids = dmx->pesfds;
 	/* the first PID is the video pid, so start with the second PID... */
 	for (std::vector<pes_pids>::const_iterator i = pids.begin() + 1; i != pids.end(); ++i) {
 		found = false;
@@ -157,7 +158,7 @@ bool cRecord::AddPid(unsigned short pid)
 		lt_info("%s: DMX = NULL\n", __func__);
 		return false;
 	}
-	pids = dmx->getPesPids();
+	pids = dmx->pesfds;
 	for (std::vector<pes_pids>::const_iterator i = pids.begin(); i != pids.end(); ++i) {
 		if ((*i).pid == pid)
 			return true; /* or is it an error to try to add the same PID twice? */

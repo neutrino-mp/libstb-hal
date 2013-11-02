@@ -65,7 +65,8 @@
 #include <cstring>
 #include <cstdio>
 #include <string>
-#include "dmx_lib.h"
+#include <sys/ioctl.h>
+#include "dmx_hal.h"
 #include "lt_debug.h"
 
 /* Ugh... see comment in destructor for details... */
@@ -75,16 +76,12 @@ extern cVideo *videoDecoder;
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_DEMUX, this, args)
 #define lt_info(args...) _lt_info(TRIPLE_DEBUG_DEMUX, this, args)
 #define lt_info_c(args...) _lt_info(TRIPLE_DEBUG_DEMUX, NULL, args)
+#define lt_info_z(args...) _lt_info(TRIPLE_DEBUG_DEMUX, thiz, args)
+#define lt_debug_z(args...) _lt_debug(TRIPLE_DEBUG_DEMUX, thiz, args)
 
 #define dmx_err(_errfmt, _errstr, _revents) do { \
-	uint16_t _pid = (uint16_t)-1; uint16_t _f = 0;\
-	if (dmx_type == DMX_PSI_CHANNEL) { \
-		_pid = s_flt.pid; _f = s_flt.filter.filter[0]; \
-	} else { \
-		_pid = p_flt.pid; \
-	}; \
 	lt_info("%s " _errfmt " fd:%d, ev:0x%x %s pid:0x%04hx flt:0x%02hx\n", \
-		__func__, _errstr, fd, _revents, DMX_T[dmx_type], _pid, _f); \
+		__func__, _errstr, fd, _revents, DMX_T[dmx_type], pid, flt); \
 } while(0);
 
 cDemux *videoDemux = NULL;
@@ -122,6 +119,11 @@ static bool init[NUM_DEMUXDEV] = { false, false, false };
 static int dmx_tp_count = 0;
 #define MAX_TS_COUNT 1
 
+typedef struct dmx_pdata {
+	int last_source;
+} dmx_pdata;
+#define P ((dmx_pdata *)pdata)
+
 cDemux::cDemux(int n)
 {
 	if (n < 0 || n >= NUM_DEMUX)
@@ -132,10 +134,8 @@ cDemux::cDemux(int n)
 	else
 		num = n;
 	fd = -1;
-	measure = false;
-	last_measure = 0;
-	last_data = 0;
-	last_source = -1;
+	pdata = (void *)calloc(1, sizeof(dmx_pdata));
+	P->last_source = -1;
 }
 
 cDemux::~cDemux()
@@ -154,6 +154,8 @@ cDemux::~cDemux()
 	 */
 	if (dmx_type == DMX_VIDEO_CHANNEL)
 		videoDecoder = NULL;
+	free(pdata);
+	pdata = NULL;
 }
 
 bool cDemux::Open(DMX_CHANNEL_TYPE pes_type, void * /*hVideoBuffer*/, int uBufferSize)
@@ -168,18 +170,18 @@ bool cDemux::Open(DMX_CHANNEL_TYPE pes_type, void * /*hVideoBuffer*/, int uBuffe
 	return true;
 }
 
-bool cDemux::_open(void)
+static bool _open(cDemux *thiz, int num, int &fd, int &last_source, DMX_CHANNEL_TYPE dmx_type, int buffersize)
 {
 	int flags = O_RDWR|O_CLOEXEC;
 	int devnum = dmx_source[num];
 	if (last_source == devnum) {
-		lt_debug("%s #%d: source (%d) did not change\n", __func__, num, last_source);
+		lt_debug_z("%s #%d: source (%d) did not change\n", __func__, num, last_source);
 		if (fd > -1)
 			return true;
 	}
 	if (fd > -1) {
 		/* we changed source -> close and reopen the fd */
-		lt_debug("%s #%d: FD ALREADY OPENED fd = %d lastsource %d devnum %d\n",
+		lt_debug_z("%s #%d: FD ALREADY OPENED fd = %d lastsource %d devnum %d\n",
 				__func__, num, fd, last_source, devnum);
 		close(fd);
 	}
@@ -190,10 +192,10 @@ bool cDemux::_open(void)
 	fd = open(devname[devnum], flags);
 	if (fd < 0)
 	{
-		lt_info("%s %s: %m\n", __FUNCTION__, devname[devnum]);
+		lt_info_z("%s %s: %m\n", __FUNCTION__, devname[devnum]);
 		return false;
 	}
-	lt_debug("%s #%d pes_type: %s(%d), uBufferSize: %d fd: %d\n", __func__,
+	lt_debug_z("%s #%d pes_type: %s(%d), uBufferSize: %d fd: %d\n", __func__,
 		 num, DMX_T[dmx_type], dmx_type, buffersize, fd);
 
 	/* this would actually need locking, but the worst that weill happen is, that
@@ -202,9 +204,9 @@ bool cDemux::_open(void)
 	{
 		/* this should not change anything... */
 		int n = DMX_SOURCE_FRONT0 + devnum;
-		lt_info("%s: setting %s to source %d\n", __func__, devname[devnum], n);
+		lt_info_z("%s: setting %s to source %d\n", __func__, devname[devnum], n);
 		if (ioctl(fd, DMX_SET_SOURCE, &n) < 0)
-			lt_info("%s DMX_SET_SOURCE failed!\n", __func__);
+			lt_info_z("%s DMX_SET_SOURCE failed!\n", __func__);
 		else
 			init[devnum] = true;
 	}
@@ -212,7 +214,7 @@ bool cDemux::_open(void)
 	{
 		/* probably uBufferSize == 0 means "use default size". TODO: find a reasonable default */
 		if (ioctl(fd, DMX_SET_BUFFER_SIZE, buffersize) < 0)
-			lt_info("%s DMX_SET_BUFFER_SIZE failed (%m)\n", __func__);
+			lt_info_z("%s DMX_SET_BUFFER_SIZE failed (%m)\n", __func__);
 	}
 
 	last_source = devnum;
@@ -232,8 +234,6 @@ void cDemux::Close(void)
 	ioctl(fd, DMX_STOP);
 	close(fd);
 	fd = -1;
-	if (measure)
-		return;
 	if (dmx_type == DMX_TP_CHANNEL)
 	{
 		dmx_tp_count--;
@@ -342,13 +342,15 @@ int cDemux::Read(unsigned char *buff, int len, int timeout)
 	return rc;
 }
 
-bool cDemux::sectionFilter(unsigned short pid, const unsigned char * const filter,
+bool cDemux::sectionFilter(unsigned short _pid, const unsigned char * const filter,
 			   const unsigned char * const mask, int len, int timeout,
 			   const unsigned char * const negmask)
 {
+	struct dmx_sct_filter_params s_flt;
 	memset(&s_flt, 0, sizeof(s_flt));
+	pid = _pid;
 
-	_open();
+	_open(this, num, fd, P->last_source, dmx_type, buffersize);
 
 	if (len > DMX_FILTER_SIZE)
 	{
@@ -459,8 +461,11 @@ bool cDemux::sectionFilter(unsigned short pid, const unsigned char * const filte
 	return true;
 }
 
-bool cDemux::pesFilter(const unsigned short pid)
+bool cDemux::pesFilter(const unsigned short _pid)
 {
+	struct dmx_pes_filter_params p_flt;
+	pid = _pid;
+	flt = 0;
 	/* allow PID 0 for web streaming e.g.
 	 * this check originally is from tuxbox cvs but I'm not sure
 	 * what it is good for...
@@ -472,7 +477,7 @@ bool cDemux::pesFilter(const unsigned short pid)
 
 	lt_debug("%s #%d pid: 0x%04hx fd: %d type: %s\n", __FUNCTION__, num, pid, fd, DMX_T[dmx_type]);
 
-	_open();
+	_open(this, num, fd, P->last_source, dmx_type, buffersize);
 
 	memset(&p_flt, 0, sizeof(p_flt));
 	p_flt.pid = pid;
@@ -535,7 +540,7 @@ bool cDemux::addPid(unsigned short Pid)
 		lt_info("%s pes_type %s not implemented yet! pid=%hx\n", __FUNCTION__, DMX_T[dmx_type], Pid);
 		return false;
 	}
-	_open();
+	_open(this, num, fd, P->last_source, dmx_type, buffersize);
 	if (fd == -1)
 		lt_info("%s bucketfd not yet opened? pid=%hx\n", __FUNCTION__, Pid);
 	pfd.fd = fd; /* dummy */

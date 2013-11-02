@@ -21,7 +21,7 @@
 #include <cstdlib>
 
 #include "audio_lib.h"
-#include "dmx_lib.h"
+#include "dmx_hal.h"
 #include "avdec.h"
 #include "lt_debug.h"
 

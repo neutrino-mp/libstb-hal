@@ -1,13 +1,16 @@
+#include <config.h>
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include <cstring>
 #include "playback_td.h"
-#include "dmx_td.h"
+#include "dmx_hal.h"
 #include "audio_td.h"
 #include "video_td.h"
 #include "lt_debug.h"
@@ -266,9 +269,9 @@ void cPlayback::playthread(void)
 	}
 	fcntl(dvrfd, F_SETFD, FD_CLOEXEC);
 
-	pthread_cleanup_push(playthread_cleanup_handler, 0);
+	pthread_cleanup_push(playthread_cleanup_handler, (void *)audioDemux->fd);
 
-	ioctl(audioDemux->getFD(), DEMUX_SELECT_SOURCE, INPUT_FROM_PVR);
+	ioctl(audioDemux->fd, DEMUX_SELECT_SOURCE, INPUT_FROM_PVR);
 	if (ac3)
 		audioDecoder->SetStreamType(AUDIO_FMT_DOLBY_DIGITAL);
 	else
@@ -360,10 +363,11 @@ void cPlayback::playthread(void)
 	pthread_exit(NULL);
 }
 
-static void playthread_cleanup_handler(void *)
+static void playthread_cleanup_handler(void *arg)
 {
 	lt_info_c("%s\n", __FUNCTION__);
-	ioctl(audioDemux->getFD(), DEMUX_SELECT_SOURCE, INPUT_FROM_CHANNEL0);
+	int admx_fd = (int)arg;
+	ioctl(admx_fd, DEMUX_SELECT_SOURCE, INPUT_FROM_CHANNEL0);
 	audioDemux->Stop();
 	videoDemux->Stop();
 	audioDecoder->Stop();

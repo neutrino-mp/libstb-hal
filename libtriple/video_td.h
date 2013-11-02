@@ -5,7 +5,6 @@
 #define video_format_t          vidDispSize_t
 //#define video_displayformat_t   vidDispMode_t
 #include <cs_types.h>
-#include "dmx_td.h"
 
 #define STB_HAL_VIDEO_HAS_GETSCREENIMAGE 1
 
@@ -110,6 +109,7 @@ typedef enum
 	VIDEO_CONTROL_MAX = VIDEO_CONTROL_SHARPNESS
 } VIDEO_CONTROL;
 
+class cDemux;
 
 class cVideo
 {

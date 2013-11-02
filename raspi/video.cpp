@@ -24,7 +24,7 @@
 #include <cstdlib>
 
 #include "video_lib.h"
-#include "dmx_lib.h"
+#include "dmx_hal.h"
 #include "avdec.h"
 #include "lt_debug.h"
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_VIDEO, this, args)
