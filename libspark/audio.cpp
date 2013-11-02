@@ -6,6 +6,8 @@
 #include <unistd.h>
 
 #include <linux/dvb/audio.h>
+
+#include <proc_tools.h>
 #include "audio_hal.h"
 #include "audio_priv.h"
 #include "lt_debug.h"
@@ -18,19 +20,6 @@
 
 cAudio * audioDecoder = NULL;
 ADec *adec = NULL;
-
-static int proc_put(const char *path, const char *value, const int len)
-{
-	int ret, ret2;
-	int pfd = open(path, O_WRONLY);
-	if (pfd < 0)
-		return pfd;
-	ret = write(pfd, value, len);
-	ret2 = close(pfd);
-	if (ret2 < 0)
-		return ret2;
-	return ret;
-}
 
 cAudio::cAudio(void *, void *, void *)
 {
