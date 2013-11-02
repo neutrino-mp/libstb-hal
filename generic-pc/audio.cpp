@@ -22,7 +22,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "audio_lib.h"
+#include "audio_hal.h"
 #include "audio_priv.h"
 #include "dmx_hal.h"
 #include "lt_debug.h"

@@ -1,7 +1,24 @@
-/* public header file */
+/*
+ * (C) 2010-2013 Stefan Seyfried
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
-#ifndef _AUDIO_TD_H_
-#define _AUDIO_TD_H_
+#ifndef __audio_hal__
+#define __audio_hal__
+
+#include <stdint.h>
 #include <cs_types.h>
 
 typedef enum
@@ -37,26 +54,6 @@ typedef enum
 
 class cAudio
 {
-	friend class cPlayback;
-	private:
-		int fd;
-		bool Muted;
-
-		int clipfd; /* for pcm playback */
-		int mixer_fd;  /* if we are using the OSS mixer */
-		int mixer_num; /* oss mixer to use, if any */
-
-		AUDIO_FORMAT	StreamType;
-		AUDIO_SYNC_MODE    SyncMode;
-		bool started;
-
-		int volume;
-
-		void openDevice(void);
-		void closeDevice(void);
-
-		int do_mute(bool enable, bool remember);
-		void setBypassMode(bool disable);
 	public:
 		/* construct & destruct */
 		cAudio(void *, void *, void *);
@@ -64,13 +61,14 @@ class cAudio
 
 		void *GetHandle() { return NULL; };
 		/* shut up */
-		int mute(bool remember = true) { return do_mute(true, remember); };
-		int unmute(bool remember = true) { return do_mute(false, remember); };
+		int mute(void);
+		int unmute(void);
+		int SetMute(bool enable);
 
 		/* volume, min = 0, max = 255 */
 		int setVolume(unsigned int left, unsigned int right);
 		int getVolume(void) { return volume;}
-		bool getMuteStatus(void) { return Muted; };
+		bool getMuteStatus(void) { return muted; };
 
 		/* start and stop audio */
 		int Start(void);
@@ -86,11 +84,15 @@ class cAudio
 		int StopClip();
 		void getAudioInfo(int &type, int &layer, int& freq, int &bitrate, int &mode);
 		void SetSRS(int iq_enable, int nmgr_enable, int iq_mode, int iq_level);
-		bool IsHdmiDDSupported() { return true; };
+		bool IsHdmiDDSupported();
 		void SetHdmiDD(bool enable);
 		void SetSpdifDD(bool enable);
 		void ScheduleMute(bool On);
 		void EnableAnalogOut(bool enable);
+	private:
+		bool muted;
+		int volume;
+		void *pdata;
 };
 
 #endif

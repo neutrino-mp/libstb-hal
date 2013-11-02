@@ -6,7 +6,8 @@
 #include <unistd.h>
 
 #include <linux/dvb/audio.h>
-#include "audio_lib.h"
+#include "audio_hal.h"
+#include "audio_priv.h"
 #include "lt_debug.h"
 
 #define AUDIO_DEVICE	"/dev/dvb/adapter0/audio0"
@@ -16,6 +17,7 @@
 #include <linux/soundcard.h>
 
 cAudio * audioDecoder = NULL;
+ADec *adec = NULL;
 
 static int proc_put(const char *path, const char *value, const int len)
 {
@@ -32,32 +34,41 @@ static int proc_put(const char *path, const char *value, const int len)
 
 cAudio::cAudio(void *, void *, void *)
 {
-	fd = -1;
-	clipfd = -1;
-	mixer_fd = -1;
-	openDevice();
-	Muted = false;
+	adec = new ADec();
 }
 
 cAudio::~cAudio(void)
 {
+	delete adec;
+}
+
+ADec::ADec(void)
+{
+	fd = -1;
+	clipfd = -1;
+	mixer_fd = -1;
+	openDevice();
+	muted = false;
+}
+
+ADec::~ADec(void)
+{
 	closeDevice();
 }
 
-void cAudio::openDevice(void)
+void ADec::openDevice(void)
 {
 	if (fd < 0)
 	{
-		if ((fd = open(AUDIO_DEVICE, O_RDWR)) < 0)
+		if ((fd = open(AUDIO_DEVICE, O_RDWR|O_CLOEXEC)) < 0)
 			lt_info("openDevice: open failed (%m)\n");
-		fcntl(fd, F_SETFD, FD_CLOEXEC);
-		do_mute(true, false);
+		//SetMute(true);
 	}
 	else
 		lt_info("openDevice: already open (fd = %d)\n", fd);
 }
 
-void cAudio::closeDevice(void)
+void ADec::closeDevice(void)
 {
 	if (fd >= 0)
 		close(fd);
@@ -70,15 +81,30 @@ void cAudio::closeDevice(void)
 	mixer_fd = -1;
 }
 
-int cAudio::do_mute(bool enable, bool remember)
+int cAudio::mute(void)
 {
-	lt_debug("%s(%d, %d)\n", __FUNCTION__, enable, remember);
+	return SetMute(true);
+}
+
+int cAudio::unmute(void)
+{
+	return SetMute(false);
+}
+
+int cAudio::SetMute(bool enable)
+{
+	return adec->SetMute(enable);
+}
+
+int ADec::SetMute(bool enable, bool remember)
+{
+	lt_debug("%s(%d)\n", __func__, enable);
 	char str[4];
 
 	if (remember)
-		Muted = enable;
+		muted = enable;
 
-	sprintf(str, "%d", Muted);
+	sprintf(str, "%d", muted);
 	proc_put("/proc/stb/audio/j1_mute", str, strlen(str));
 
 	if (!enable)
@@ -102,8 +128,12 @@ int map_volume(const int volume)
 	return vol;
 }
 
-
 int cAudio::setVolume(unsigned int left, unsigned int right)
+{
+	return adec->setVolume(left, right);
+}
+
+int ADec::setVolume(unsigned int left, unsigned int right)
 {
 	lt_debug("%s(%d, %d)\n", __func__, left, right);
 
@@ -112,7 +142,7 @@ int cAudio::setVolume(unsigned int left, unsigned int right)
 	if (clipfd != -1 && mixer_fd != -1) {
 		int tmp = 0;
 		/* not sure if left / right is correct here, but it is always the same anyways ;-) */
-		if (! Muted)
+		if (! muted)
 			tmp = left << 8 | right;
 		int ret = ioctl(mixer_fd, MIXER_WRITE(mixer_num), &tmp);
 		if (ret == -1)
@@ -134,14 +164,12 @@ int cAudio::setVolume(unsigned int left, unsigned int right)
 
 int cAudio::Start(void)
 {
-	int ret;
-	ret = ioctl(fd, AUDIO_PLAY);
-	return ret;
+	return adec->Start();
 }
 
 int cAudio::Stop(void)
 {
-	return ioctl(fd, AUDIO_STOP);
+	return adec->Stop();
 }
 
 bool cAudio::Pause(bool /*Pcm*/)
@@ -150,6 +178,21 @@ bool cAudio::Pause(bool /*Pcm*/)
 };
 
 void cAudio::SetSyncMode(AVSYNC_TYPE Mode)
+{
+	adec->SetSyncMode(Mode);
+}
+
+int ADec::Start(void)
+{
+	return ioctl(fd, AUDIO_PLAY);
+}
+
+int ADec::Stop(void)
+{
+	return ioctl(fd, AUDIO_STOP);
+}
+
+void ADec::SetSyncMode(AVSYNC_TYPE Mode)
 {
 	lt_debug("%s %d\n", __func__, Mode);
 	ioctl(fd, AUDIO_SET_AV_SYNC, Mode);
@@ -165,6 +208,11 @@ void cAudio::SetSyncMode(AVSYNC_TYPE Mode)
 #define AUDIO_ENCODING_LPCM 2
 #define AUDIO_ENCODING_LPCMA 11
 void cAudio::SetStreamType(AUDIO_FORMAT type)
+{
+	adec->SetStreamType(type);
+}
+
+void ADec::SetStreamType(AUDIO_FORMAT type)
 {
 	int bypass = AUDIO_STREAMTYPE_MPEG;
 	bool update_volume = (StreamType != type);
@@ -199,6 +247,11 @@ int cAudio::setChannel(int channel)
 };
 
 int cAudio::PrepareClipPlay(int ch, int srate, int bits, int little_endian)
+{
+	return adec->PrepareClipPlay(ch, srate, bits, little_endian);
+}
+
+int ADec::PrepareClipPlay(int ch, int srate, int bits, int little_endian)
 {
 	int fmt;
 	unsigned int devmask, stereo, usable;
@@ -298,6 +351,11 @@ int cAudio::PrepareClipPlay(int ch, int srate, int bits, int little_endian)
 
 int cAudio::WriteClip(unsigned char *buffer, int size)
 {
+	return adec->WriteClip(buffer, size);
+}
+
+int ADec::WriteClip(unsigned char *buffer, int size)
+{
 	int ret;
 	// lt_debug("cAudio::%s\n", __FUNCTION__);
 	if (clipfd <= 0) {
@@ -311,6 +369,11 @@ int cAudio::WriteClip(unsigned char *buffer, int size)
 };
 
 int cAudio::StopClip()
+{
+	return adec->StopClip();
+}
+
+int ADec::StopClip()
 {
 	lt_debug("%s\n", __FUNCTION__);
 	if (clipfd <= 0) {
@@ -390,7 +453,7 @@ void cAudio::SetHdmiDD(bool enable)
 void cAudio::SetSpdifDD(bool enable)
 {
 	lt_debug("%s %d\n", __func__, enable);
-	setBypassMode(!enable);
+	adec->setBypassMode(!enable);
 };
 
 void cAudio::ScheduleMute(bool On)
@@ -405,7 +468,7 @@ void cAudio::EnableAnalogOut(bool enable)
 
 #define AUDIO_BYPASS_ON  0
 #define AUDIO_BYPASS_OFF 1
-void cAudio::setBypassMode(bool disable)
+void ADec::setBypassMode(bool disable)
 {
 	const char *opt[] = { "passthrough", "downmix" };
 	lt_debug("%s %d\n", __func__, disable);

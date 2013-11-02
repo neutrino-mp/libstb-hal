@@ -10,7 +10,7 @@
 #include <cstring>
 #include "playback_lib.h"
 #include "dmx_hal.h"
-#include "audio_lib.h"
+#include "audio_hal.h"
 #include "video_lib.h"
 #include "lt_debug.h"
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_PLAYBACK, this, args)

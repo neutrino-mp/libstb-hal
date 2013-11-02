@@ -37,6 +37,8 @@ static pthread_mutex_t inbufpos_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int dvrfd = -1;
 static int streamtype;
 
+static bool was_muted = false;
+
 extern cDemux *videoDemux;
 extern cDemux *audioDemux;
 extern cVideo *videoDecoder;
@@ -111,7 +113,7 @@ void cPlayback::Close(void)
 
 	/* don't crash */
 	if (audioDecoder)
-		audioDecoder->do_mute(audioDecoder->Muted, false);
+		audioDecoder->SetMute(was_muted);
 }
 
 bool cPlayback::Start(char *filename, unsigned short vp, int vtype, unsigned short ap, int _ac3, unsigned int)
@@ -427,12 +429,12 @@ bool cPlayback::SetSpeed(int speed)
 		audioDecoder->Start();
 		videoDecoder->Start();
 		playstate = STATE_PLAY;
-		/* cPlayback is a friend of cAudio and can use private methods */
-		audioDecoder->do_mute(audioDecoder->Muted, false);
+		audioDecoder->SetMute(was_muted);
 	}
 	if (playback_speed == 1 && speed > 1)
 	{
-		audioDecoder->mute(false);
+		was_muted = audioDecoder->getMuteStatus();
+		audioDecoder->mute();
 		videoDecoder->vdec->FastForwardMode();
 	}
 	playback_speed = speed;

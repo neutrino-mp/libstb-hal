@@ -20,7 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "audio_lib.h"
+#include "audio_hal.h"
 #include "dmx_hal.h"
 #include "avdec.h"
 #include "lt_debug.h"

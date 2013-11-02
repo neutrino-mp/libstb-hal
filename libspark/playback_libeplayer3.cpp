@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include <audio_lib.h>
+#include <audio_priv.h>
 #include <video_priv.h>
 
 #include <common.h>
@@ -16,7 +16,7 @@ extern ManagerHandler_t		ManagerHandler;
 
 static Context_t *player;
 
-extern cAudio *audioDecoder;
+extern ADec *adec;
 extern cVideo *videoDecoder;
 static bool decoders_closed = false;
 
@@ -37,7 +37,7 @@ bool cPlayback::Open(playmode_t PlayMode)
 
 	if (PlayMode != PLAYMODE_TS)
 	{
-		audioDecoder->closeDevice();
+		adec->closeDevice();
 		videoDecoder->vdec->closeDevice();
 		decoders_closed = true;
 	}
@@ -80,7 +80,7 @@ void cPlayback::Close(void)
 	Stop();
 	if (decoders_closed)
 	{
-		audioDecoder->openDevice();
+		adec->openDevice();
 		videoDecoder->vdec->openDevice();
 		decoders_closed = false;
 	}
@@ -201,7 +201,7 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 		{
 			ret = true;
 			videoDecoder->vdec->Stop(false);
-			audioDecoder->Stop();
+			adec->Stop();
 		}
 	}
 	return ret;
@@ -253,7 +253,7 @@ bool cPlayback::SetSpeed(int speed)
 
 	if (! decoders_closed)
 	{
-		audioDecoder->closeDevice();
+		adec->closeDevice();
 		videoDecoder->vdec->closeDevice();
 		decoders_closed = true;
 		usleep(500000);
