@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "playback.h"
+#include "playback_hal.h"
 
 static const char * FILENAME = "playback-dummy";
 
@@ -13,14 +13,14 @@ void cPlayback::Close(void)
 {
 }
 
-bool cPlayback::Start(char * filename, unsigned short vpid, int vtype, unsigned short apid, bool ac3, int duration)
+bool cPlayback::Start(char * filename, unsigned short vpid, int vtype, unsigned short apid, int ac3, unsigned int duration)
 {
 	printf("%s:%s - filename=%s vpid=%u vtype=%d apid=%u ac3=%d duration=%i\n",
 		FILENAME, __func__, filename, vpid, vtype, apid, ac3, duration);
 	return true;
 }
 
-bool cPlayback::SetAPid(unsigned short pid, bool /*ac3*/)
+bool cPlayback::SetAPid(unsigned short pid, int /*ac3*/)
 {
 	printf("%s:%s pid %i\n", FILENAME, __func__, pid);
 	return true;

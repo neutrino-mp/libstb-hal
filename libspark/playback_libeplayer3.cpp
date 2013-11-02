@@ -12,7 +12,8 @@ extern PlaybackHandler_t	PlaybackHandler;
 extern ContainerHandler_t	ContainerHandler;
 extern ManagerHandler_t		ManagerHandler;
 
-#include "playback_libeplayer3.h"
+//#include "playback_libeplayer3.h"
+#include "playback_hal.h"
 
 static Context_t *player;
 
@@ -26,6 +27,21 @@ static std::string fn_ts;
 static std::string fn_xml;
 static off_t last_size;
 static int init_jump;
+
+class PBPrivate
+{
+public:
+	bool enabled;
+	bool playing;
+	int speed;
+	int astream;
+	PBPrivate() {
+		enabled = false;
+		playing = false;
+		speed = 0;
+		astream = -1;
+	};
+};
 
 //Used by Fileplay
 bool cPlayback::Open(playmode_t PlayMode)
@@ -47,7 +63,7 @@ bool cPlayback::Open(playmode_t PlayMode)
 	fn_ts = "";
 	fn_xml = "";
 	last_size = 0;
-	nPlaybackSpeed = 0;
+	pd->speed = 0;
 	init_jump = -1;
 	
 	player = (Context_t*) malloc(sizeof(Context_t));
@@ -97,7 +113,7 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 
 	init_jump = -1;
 	//create playback path
-	mAudioStream=0;
+	pd->astream = 0;
 	char file[400] = {""};
 
 	if(!strncmp("http://", filename, 7))
@@ -181,9 +197,9 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 	      ret = false;
 	      printf("failed to pause playback\n");
 	   } else
-  	      playing = true;
+		pd->playing = true;
         } else
-  	      playing = true;
+		pd->playing = true;
       }
 		
 	printf("%s:%s - return=%d\n", FILENAME, __FUNCTION__, ret);
@@ -210,8 +226,9 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 //Used by Fileplay
 bool cPlayback::Stop(void)
 {
-	printf("%s:%s playing %d\n", FILENAME, __FUNCTION__, playing);
-	if(playing==false) return false;
+	printf("%s:%s playing %d\n", FILENAME, __func__, pd->playing);
+	if (pd->playing == false)
+		return false;
 
 	if(player && player->playback && player->output) {
 		player->playback->Command(player, PLAYBACK_STOP, NULL);
@@ -231,25 +248,25 @@ bool cPlayback::Stop(void)
 	if(player != NULL)
 		player = NULL;
 
-	playing=false;
+	pd->playing = false;
 	return true;
 }
 
-bool cPlayback::SetAPid(unsigned short pid, bool /*ac3*/)
+bool cPlayback::SetAPid(unsigned short pid, int /*ac3*/)
 {
 	printf("%s:%s\n", FILENAME, __FUNCTION__);
 	int i=pid;
-	if(pid!=mAudioStream){
+	if (pid != pd->astream){
 		if(player && player->playback)
-				player->playback->Command(player, PLAYBACK_SWITCH_AUDIO, (void*)&i);
-		mAudioStream=pid;
+			player->playback->Command(player, PLAYBACK_SWITCH_AUDIO, (void*)&i);
+		pd->astream = pid;
 	}
 	return true;
 }
 
 bool cPlayback::SetSpeed(int speed)
 {
-	printf("%s:%s playing %d speed %d\n", FILENAME, __FUNCTION__, playing, speed);
+	printf("%s:%s playing %d speed %d\n", FILENAME, __func__, pd->playing, speed);
 
 	if (! decoders_closed)
 	{
@@ -260,18 +277,18 @@ bool cPlayback::SetSpeed(int speed)
 		if (player && player->output && player->playback) {
 			player->output->Command(player, OUTPUT_OPEN, NULL);
 			if (player->playback->Command(player, PLAYBACK_PLAY, NULL) == 0) // playback.c uses "int = 0" for "true"
-				playing = true;
+				pd->playing = true;
 		}
 	}
 
-	if(playing==false) 
-	   return false;
+	if (!pd->playing)
+		return false;
 	
 	if(player && player->playback) 
 	{
 		int result = 0;
 		
-                nPlaybackSpeed = speed;
+		pd->speed = speed;
 		
 		if (speed > 1)
 		{
@@ -330,7 +347,7 @@ bool cPlayback::SetSpeed(int speed)
 bool cPlayback::GetSpeed(int &speed) const
 {
 	//printf("%s:%s\n", FILENAME, __FUNCTION__);
-        speed = nPlaybackSpeed;
+	speed = pd->speed;
 	return true;
 }
 
@@ -347,14 +364,14 @@ bool cPlayback::GetPosition(int &position, int &duration)
 		struct stat s;
 		if (!stat(fn_ts.c_str(), &s))
 		{
-			if (! playing || last_size != s.st_size)
+			if (!pd->playing || last_size != s.st_size)
 			{
 				last_size = s.st_size;
 				time_t curr_time = s.st_mtime;
 				if (!stat(fn_xml.c_str(), &s))
 				{
 					duration = (curr_time - s.st_mtime) * 1000;
-					if (! playing)
+					if (!pd->playing)
 						return true;
 					got_duration = true;
 				}
@@ -362,7 +379,8 @@ bool cPlayback::GetPosition(int &position, int &duration)
 		}
 	}
 
-	if(playing==false) return false;
+	if (!pd->playing)
+		return false;
 
 	if (player && player->playback && !player->playback->isPlaying) {
 		printf("cPlayback::%s !!!!EOF!!!! < -1\n", __func__);
@@ -403,7 +421,7 @@ bool cPlayback::GetPosition(int &position, int &duration)
 bool cPlayback::SetPosition(int position, bool /*absolute*/)
 {
 	printf("%s:%s %d\n", FILENAME, __FUNCTION__,position);
-	if (playing == false)
+	if (!pd->playing)
 	{
 		/* the calling sequence is:
 		 * Start()       - paused
@@ -486,12 +504,14 @@ void cPlayback::RequestAbort(void)
 cPlayback::cPlayback(int /*num*/)
 {
 	printf("%s:%s\n", FILENAME, __FUNCTION__);
-	playing=false;
+	pd = new PBPrivate();
 }
 
 cPlayback::~cPlayback()
 {
 	printf("%s:%s\n", FILENAME, __FUNCTION__);
+	delete pd;
+	pd = NULL;
 }
 
 #if 0

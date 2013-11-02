@@ -50,7 +50,7 @@
 #define IN_FILE  "/tmp/rmfp.in2"
 #define OUT_FILE "/tmp/rmfp.out2"
 
-#include "playback.h"
+#include "playback_hal.h"
 
 extern "C"{
 #include "e2mruainclude.h"
@@ -73,8 +73,38 @@ static time_t monotonic_ms(void)
 }
 #endif
 
+class PBPrivate
+{
+public:
+	bool rmfp_command(int cmd, int param, bool has_param, char *buf, int buflen);
+	void run_rmfp(void);
+	PBPrivate(void) {
+		playing = 0;
+		thread_started = false;
+		eof = false;
+		open_success = false;
+		pthread_mutex_init(&rmfp_cmd_mutex, NULL);
+	};
+	~PBPrivate(void) {
+		pthread_mutex_destroy(&rmfp_cmd_mutex);
+	};
+
+	int duration;
+	int playing;
+	int speed;
+	playmode_t pmode;
+	uint16_t apid;
+	uint16_t subpid;
+	bool eof;
+	bool open_success;
+	bool thread_started;
+	pthread_t thread;
+	pthread_mutex_t rmfp_cmd_mutex;
+	char *fname;
+};
+
 /* the mutex makes sure that commands are not interspersed */
-bool cPlayback::rmfp_command(int cmd, int param, bool has_param, char *buf, int buflen)
+bool PBPrivate::rmfp_command(int cmd, int param, bool has_param, char *buf, int buflen)
 {
 	lt_info("%s: %d %d %d %d\n", __func__, cmd, param, has_param, buflen);
 	bool ret = true;
@@ -141,21 +171,21 @@ bool cPlayback::rmfp_command(int cmd, int param, bool has_param, char *buf, int 
  * the output will be buffered after starting up and we will only
  * see "Playback has started..." after the player exits
  */
-void cPlayback::run_rmfp()
+void PBPrivate::run_rmfp()
 {
 	lt_debug("%s: starting\n", __func__);
 	thread_started = true;
 	//Watch for the space at the end
 	std::string base = "rmfp_player -dram 1 -ve 1 -waitexit ";
-	std::string filename(mfilename);
+	std::string filename(fname);
 	std::string file = '"' + filename + '"';
 	std::string final = base + file;
 
-	if (playMode == PLAYMODE_TS && mduration != 0)
+	if (pmode == PLAYMODE_TS && duration != 0)
 	{
-		std::stringstream duration;
-		duration << (mduration /** 60000LL*/);
-		final = base + "-duration " + duration.str() + " " + file;
+		std::stringstream du;
+		du << (duration /** 60000LL*/);
+		final = base + "-duration " + du.str() + " " + file;
 	}
 
 	pid_t pid = 0;
@@ -190,7 +220,7 @@ void cPlayback::run_rmfp()
 			else if (strstr(output, "End of file..."))
 			{
 				playing = 1; /* this can happen without "Playback has started..." */
-				eof_reached = true;
+				eof = true;
 				lt_info("%s: ===================> eof_reached = true\n", __func__);
 			}
 		}
@@ -206,14 +236,14 @@ void cPlayback::run_rmfp()
 		playing = 2;
 	else
 		playing = 0;
-	eof_reached = true;
+	eof = true;
 	pthread_exit(NULL);
 }
 
 /* helper function to call the cpp thread loop */
 void *execute_rua_thread(void *c)
 {
-	cPlayback *obj = (cPlayback *)c;
+	PBPrivate *obj = (PBPrivate *)c;
 	lt_info_c("%s\n", __func__);
 	obj->run_rmfp();
 	/* free(obj); // this is most likely wrong */
@@ -228,11 +258,11 @@ bool cPlayback::Open(playmode_t PlayMode)
 		"PLAYMODE_TS",
 		"PLAYMODE_FILE"
 	};
-	playMode = PlayMode;
-	if (playMode > 1)
+	pd->pmode = PlayMode;
+	if (pd->pmode > 1)
 	{
 		lt_info("%s: PlayMode %d out of range!\n", __func__, PlayMode);
-		playMode = PLAYMODE_FILE;
+		pd->pmode = PLAYMODE_FILE;
 	}
 
 	lt_info("%s: mode %d (%s)\n", __func__, PlayMode, aPLAYMODE[PlayMode]);
@@ -253,7 +283,7 @@ bool cPlayback::Open(playmode_t PlayMode)
 		if (i > 10)
 		{
 			lt_info("%s: ERROR - player is not idle after 10 seconds!\n", __func__);
-			open_success = false;
+			pd->open_success = false;
 			return false;
 		}
 		sleep(1);
@@ -266,7 +296,7 @@ bool cPlayback::Open(playmode_t PlayMode)
 	unlink(IN_FILE);
 	unlink(OUT_FILE);
 
-	open_success = true;
+	pd->open_success = true;
 	return 0;
 }
 
@@ -278,49 +308,49 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 
 	lt_info("%s: filename=%s\n", __func__, filename);
 	lt_info("%s: vpid=%u vtype=%d apid=%u ac3=%d duration=%i open_success=%d\n",
-		__func__, vpid, vtype, _apid, ac3, duration, open_success);
+		__func__, vpid, vtype, _apid, ac3, duration, pd->open_success);
 
-	if (!open_success)
+	if (!pd->open_success)
 		return false;
 
-	eof_reached = false;
+	pd->eof = false;
 	//create playback path
-	apid = 0;
-	subpid = 0;
-	mfilename = filename;
-	mduration = duration;
-	if (pthread_create(&thread, 0, execute_rua_thread, this) != 0)
+	pd->apid = 0;
+	pd->subpid = 0;
+	pd->fname = filename;
+	pd->duration = duration;
+	if (pthread_create(&pd->thread, 0, execute_rua_thread, pd) != 0)
 	{
 		lt_info("%s: error creating rmfp_player thread! (out of memory?)\n", __func__);
 		ret = false;
 	}
-	while (! playing)
+	while (! pd->playing)
 		sleep(1);
-	if (playing == 2)
-		playing = 0;
+	if (pd->playing == 2)
+		pd->playing = 0;
 	return ret;
 }
 
 void cPlayback::Close(void)
 {
-	lt_info("%s: playing %d thread_started %d\n", __func__, playing, thread_started);
+	lt_info("%s: playing %d thread_started %d\n", __func__, pd->playing, pd->thread_started);
 
-	if (thread_started)
+	if (pd->thread_started)
 	{
-		rmfp_command(KEY_COMMAND_QUIT_ALL, 0, false, NULL, 0);
+		pd->rmfp_command(KEY_COMMAND_QUIT_ALL, 0, false, NULL, 0);
 
-		if (pthread_join(thread, NULL))
+		if (pthread_join(pd->thread, NULL))
 			lt_info("%s: error joining rmfp thread (%m)\n", __func__);
-		playing = 0;
-		thread_started = false;
+		pd->playing = 0;
+		pd->thread_started = false;
 	}
 	else
 		lt_info("%s: Warning: thread_started == false!\n", __func__);
 
-	if (open_success)
+	if (pd->open_success)
 	{
 		proc_put("/proc/player", "1", 2);
-		open_success = false;
+		pd->open_success = false;
 		lt_info("%s: /proc/player switched to '1'\n", __func__);
 		usleep(1000000);
 	}
@@ -329,9 +359,9 @@ void cPlayback::Close(void)
 bool cPlayback::SetAPid(unsigned short pid, int /*ac3*/)
 {
 	lt_info("%s: pid %i\n", __func__, pid);
-	if (pid != apid) {
-		rmfp_command(KEY_COMMAND_SWITCH_AUDIO, pid, true, NULL, 0);
-		apid = pid;
+	if (pid != pd->apid) {
+		pd->rmfp_command(KEY_COMMAND_SWITCH_AUDIO, pid, true, NULL, 0);
+		pd->apid = pid;
 	}
 	return true;
 }
@@ -339,29 +369,29 @@ bool cPlayback::SetAPid(unsigned short pid, int /*ac3*/)
 bool cPlayback::SelectSubtitles(int pid)
 {
 	lt_info("%s: pid %i\n", __func__, pid);
-	if (pid != subpid)
+	if (pid != pd->subpid)
 	{
-		rmfp_command(KEY_COMMAND_SWITCH_SUBS, pid, true, NULL, 0);
-		subpid = pid;
+		pd->rmfp_command(KEY_COMMAND_SWITCH_SUBS, pid, true, NULL, 0);
+		pd->subpid = pid;
 	}
 	return true;
 }
 
 bool cPlayback::SetSpeed(int speed)
 {
-	lt_info("%s: playing %d speed %d\n", __func__, playing, speed);
+	lt_info("%s: playing %d speed %d\n", __func__, pd->playing, speed);
 
-	if (!playing)
+	if (!pd->playing)
 		return false;
 
-	playback_speed = speed;
+	pd->speed = speed;
 
 	if (speed > 1 || speed < 0)
-		rmfp_command(CUSTOM_COMMAND_TRICK_SEEK, speed, true, NULL, 0);
+		pd->rmfp_command(CUSTOM_COMMAND_TRICK_SEEK, speed, true, NULL, 0);
 	else if (speed == 0)
-		rmfp_command(KEY_COMMAND_PAUSE, 0, false, NULL, 0);
+		pd->rmfp_command(KEY_COMMAND_PAUSE, 0, false, NULL, 0);
 	else
-		rmfp_command(KEY_COMMAND_PLAY, 0, false, NULL, 0);
+		pd->rmfp_command(KEY_COMMAND_PLAY, 0, false, NULL, 0);
 
 	return true;
 }
@@ -378,22 +408,22 @@ bool cPlayback::GetSpeed(int &/*speed*/) const
 // in milliseconds
 bool cPlayback::GetPosition(int &position, int &duration)
 {
-	lt_debug("%s: playing %d\n", __func__, playing);
+	lt_debug("%s: playing %d\n", __func__, pd->playing);
 
-	if (eof_reached)
+	if (pd->eof)
 	{
-		position = mduration;
-		duration = mduration;
+		position = pd->duration;
+		duration = pd->duration;
 		return true;
 	}
 
-	if (!playing)
+	if (!pd->playing)
 		return false;
 
 	char buf[32];
 	/* custom command 222 returns "12345\n1234\n",
 	 * first line is duration, second line is position */
-	if (! rmfp_command(222, 0, false, buf, 32))
+	if (! pd->rmfp_command(222, 0, false, buf, 32))
 		return false;
 	duration = atoi(buf);
 	char *p = strchr(buf, '\n');
@@ -404,11 +434,11 @@ bool cPlayback::GetPosition(int &position, int &duration)
 	if (duration == 0)
 		duration = position + 1000;
 
-	if (playMode == PLAYMODE_TS)
+	if (pd->pmode == PLAYMODE_TS)
 	{
-		if (position > mduration)
-			mduration = position + 1000;
-		duration = mduration;
+		if (position > pd->duration)
+			pd->duration = position + 1000;
+		duration = pd->duration;
 		return true;
 	}
 	return true;
@@ -416,23 +446,23 @@ bool cPlayback::GetPosition(int &position, int &duration)
 
 bool cPlayback::SetPosition(int position, bool absolute)
 {
-	lt_info("%s: pos %d abs %d playing %d\n", __func__, position, absolute, playing);
+	lt_info("%s: pos %d abs %d playing %d\n", __func__, position, absolute, pd->playing);
 
-	if (!playing)
+	if (!pd->playing)
 		return false;
 
 	int seconds = position / 1000;;
 
 	if (absolute)
 	{
-		rmfp_command(KEY_COMMAND_SEEK_TO_TIME, seconds, true, NULL, 0);
+		pd->rmfp_command(KEY_COMMAND_SEEK_TO_TIME, seconds, true, NULL, 0);
 		return true;
 	}
 
 	if (position > 0)
-		rmfp_command(CUSTOM_COMMAND_SEEK_RELATIVE_FWD, seconds, true, NULL, 0);
+		pd->rmfp_command(CUSTOM_COMMAND_SEEK_RELATIVE_FWD, seconds, true, NULL, 0);
 	else if (position < 0)
-		rmfp_command(CUSTOM_COMMAND_SEEK_RELATIVE_BWD, seconds, true, NULL, 0);
+		pd->rmfp_command(CUSTOM_COMMAND_SEEK_RELATIVE_BWD, seconds, true, NULL, 0);
 	return true;
 }
 
@@ -440,7 +470,7 @@ void cPlayback::FindAllPids(uint16_t *apids, unsigned short *ac3flags, uint16_t 
 {
 	lt_info("%s\n", __func__);
 	char buf[32];
-	rmfp_command(CUSTOM_COMMAND_AUDIO_COUNT, 0, false, buf, 3);
+	pd->rmfp_command(CUSTOM_COMMAND_AUDIO_COUNT, 0, false, buf, 3);
 	unsigned int audio_count = atoi(buf);
 
 	*numpida = audio_count;
@@ -451,7 +481,7 @@ void cPlayback::FindAllPids(uint16_t *apids, unsigned short *ac3flags, uint16_t 
 			char streamidstring[11];
 			char audio_lang[21];
 			memset(buf, 0, sizeof(buf));
-			rmfp_command(CUSTOM_COMMAND_GET_AUDIO_BY_ID, aid, true, buf, 32);
+			pd->rmfp_command(CUSTOM_COMMAND_GET_AUDIO_BY_ID, aid, true, buf, 32);
 			memcpy(streamidstring, buf, 10);
 			streamidstring[10] = '\0';
 			memcpy(audio_lang, buf + 10, 20);
@@ -469,7 +499,7 @@ void cPlayback::FindAllSubs(uint16_t *spids, unsigned short *supported, uint16_t
 	lt_info("%s\n", __func__);
 	char buf[32];
 
-	rmfp_command(CUSTOM_COMMAND_SUBS_COUNT, 0, false, buf, 3);
+	pd->rmfp_command(CUSTOM_COMMAND_SUBS_COUNT, 0, false, buf, 3);
 	unsigned int spu_count = atoi(buf);
 	*numpids = spu_count;
 
@@ -480,7 +510,7 @@ void cPlayback::FindAllSubs(uint16_t *spids, unsigned short *supported, uint16_t
 			char streamidstring[11];
 			char spu_lang[21];
 			memset(buf, 0, sizeof(buf));
-			rmfp_command(CUSTOM_COMMAND_GET_SUB_BY_ID, sid, true, buf, 32);
+			pd->rmfp_command(CUSTOM_COMMAND_GET_SUB_BY_ID, sid, true, buf, 32);
 			memcpy(streamidstring, buf, 10);
 			streamidstring[10] = '\0';
 			memcpy(spu_lang, buf + 10, 20);
@@ -511,15 +541,12 @@ void cPlayback::RequestAbort(void)
 cPlayback::cPlayback(int /*num*/)
 {
 	lt_info("%s: constructor\n", __func__);
-	playing = 0;
-	thread_started = false;
-	eof_reached = false;
-	open_success = false;
-	pthread_mutex_init(&rmfp_cmd_mutex, NULL);
+	pd = new PBPrivate();
 }
 
 cPlayback::~cPlayback()
 {
 	lt_info("%s\n", __func__);
-	pthread_mutex_destroy(&rmfp_cmd_mutex);
+	delete pd;
+	pd = NULL;
 }

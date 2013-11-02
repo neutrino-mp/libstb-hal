@@ -9,7 +9,9 @@
 #include <unistd.h>
 
 #include <cstring>
-#include "playback_td.h"
+#include <map>
+
+#include "playback_hal.h"
 #include "dmx_hal.h"
 #include "audio_td.h"
 #include "video_hal.h"
@@ -51,9 +53,117 @@ static const char *FILETYPE[] = {
 	"FILETYPE_VDR"
 };
 
+/* almost 256kB */
+#define INBUF_SIZE (1394 * 188)
+#define PESBUF_SIZE (128 * 1024)
+
+typedef enum {
+	FILETYPE_UNKNOWN,
+	FILETYPE_TS,
+	FILETYPE_MPG,
+	FILETYPE_VDR
+} filetype_t;
+
+typedef enum {
+	STATE_STOP,
+	STATE_PLAY,
+	STATE_PAUSE,
+	STATE_FF,
+	STATE_REW,
+	STATE_INIT
+} playstate_t;
+
+typedef struct {
+	std::string Name;
+	off_t Size;
+} filelist_t;
+
+class PBPrivate
+{
+public:
+	uint8_t *inbuf;
+	ssize_t inbuf_pos;
+	ssize_t inbuf_sync;
+	uint8_t *pesbuf;
+	ssize_t pesbuf_pos;
+	ssize_t inbuf_read(void);
+	ssize_t read_ts(void);
+	ssize_t read_mpeg(void);
+
+	uint8_t cc[256];
+
+	int in_fd;
+	int *audio_fd;
+	VDec *vdec;
+
+	int playback_speed;
+	std::vector<filelist_t> filelist; /* for multi-file playback */
+
+	bool filelist_auto_add(void);
+	int mf_open(int fileno);
+	int mf_close(void);
+	off_t mf_lseek(off_t pos);
+	off_t mf_getsize(void);
+	int curr_fileno;
+	off_t curr_pos;
+	off_t last_size;
+	off_t bytes_per_second;
+
+	uint16_t vpid;
+	uint16_t apid;
+	bool ac3;
+	struct AStream {
+		// uint16_t pid;
+		bool ac3;
+		std::string lang; /* not yet really used */
+	};
+	std::map<uint16_t, AStream> astreams; /* stores AStream sorted by pid */
+
+	int64_t pts_start;
+	int64_t pts_end;
+	int64_t _pts_end; /* last good endpts */
+	int64_t pts_curr;
+	int64_t get_pts(uint8_t *p, bool pes, int bufsize);
+
+	filetype_t filetype;
+	playstate_t playstate;
+
+	off_t seek_to_pts(int64_t pts);
+	off_t mp_seekSync(off_t pos);
+	int64_t get_PES_PTS(uint8_t *buf, int len, bool until_eof);
+
+	pthread_t thread;
+	bool thread_started;
+
+	PBPrivate(VDec *v);
+	~PBPrivate();
+
+	void playthread();
+
+	bool Open(playmode_t PlayMode);
+	void Close(void);
+	bool Start(char *filename, unsigned short vpid, int vtype, unsigned short apid, int ac3, int *afd);
+	bool SetAPid(unsigned short pid, int ac3);
+	bool SetSpeed(int speed);
+	bool GetPosition(int &position, int &duration); /* pos: current time in ms, dur: file length in ms */
+	bool SetPosition(int position, bool absolute); /* position: jump in ms */
+	void FindAllPids(uint16_t *apids, unsigned short *ac3flags, uint16_t *numpida, std::string *language);
+};
+
 cPlayback::cPlayback(int)
 {
 	lt_debug("%s\n", __FUNCTION__);
+	pd = new PBPrivate(videoDecoder->vdec);
+}
+
+cPlayback::~cPlayback()
+{
+	delete pd;
+	pd = NULL;
+}
+
+PBPrivate::PBPrivate(VDec *v)
+{
 	thread_started = false;
 	inbuf = NULL;
 	pesbuf = NULL;
@@ -61,9 +171,10 @@ cPlayback::cPlayback(int)
 	curr_fileno = -1;
 	in_fd = -1;
 	streamtype = 0;
+	vdec = v;
 }
 
-cPlayback::~cPlayback()
+PBPrivate::~PBPrivate()
 {
 	lt_debug("%s\n", __FUNCTION__);
 	Close();
@@ -72,6 +183,11 @@ cPlayback::~cPlayback()
 
 bool cPlayback::Open(playmode_t mode)
 {
+	return pd->Open(mode);
+}
+
+bool PBPrivate::Open(playmode_t mode)
+{
 	static const char *PMODE[] = {
 		"PLAYMODE_TS",
 		"PLAYMODE_FILE"
@@ -79,7 +195,6 @@ bool cPlayback::Open(playmode_t mode)
 
 	lt_debug("%s: PlayMode = %s\n", __FUNCTION__, PMODE[mode]);
 	thread_started = false;
-	playMode = mode;
 	filetype = FILETYPE_TS;
 	playback_speed = 0;
 	last_size = 0;
@@ -91,6 +206,11 @@ bool cPlayback::Open(playmode_t mode)
 
 //Used by Fileplay
 void cPlayback::Close(void)
+{
+	pd->Close();
+}
+
+void PBPrivate::Close(void)
 {
 	lt_info("%s\n", __FUNCTION__);
 	playstate = STATE_STOP;
@@ -116,13 +236,19 @@ void cPlayback::Close(void)
 		audioDecoder->SetMute(was_muted);
 }
 
-bool cPlayback::Start(char *filename, unsigned short vp, int vtype, unsigned short ap, int _ac3, unsigned int)
+bool cPlayback::Start(char *filename, unsigned short vp, int vtype, unsigned short ap, int ac3, unsigned int)
+{
+	return pd->Start(filename, vp, vtype, ap, ac3, &audioDemux->fd);
+}
+
+bool PBPrivate::Start(char *filename, unsigned short vp, int vtype, unsigned short ap, int _ac3, int *audiofd)
 {
 	struct stat s;
 	off_t r;
 	vpid = vp;
 	apid = ap;
 	ac3 = _ac3;
+	audio_fd = audiofd;
 	lt_info("%s name = '%s' vpid 0x%04hx vtype %d apid 0x%04hx ac3 %d filelist.size: %u\n",
 		__FUNCTION__, filename, vpid, vtype, apid, ac3, filelist.size());
 	if (!filelist.empty())
@@ -255,12 +381,12 @@ bool cPlayback::Start(char *filename, unsigned short vp, int vtype, unsigned sho
 
 static void *start_playthread(void *c)
 {
-	cPlayback *obj = (cPlayback *)c;
+	PBPrivate *obj = (PBPrivate *)c;
 	obj->playthread();
 	return NULL;
 }
 
-void cPlayback::playthread(void)
+void PBPrivate::playthread(void)
 {
 	thread_started = true;
 	int ret, towrite;
@@ -272,9 +398,9 @@ void cPlayback::playthread(void)
 	}
 	fcntl(dvrfd, F_SETFD, FD_CLOEXEC);
 
-	pthread_cleanup_push(playthread_cleanup_handler, (void *)audioDemux->fd);
+	pthread_cleanup_push(playthread_cleanup_handler, (void *)audio_fd);
 
-	ioctl(audioDemux->fd, DEMUX_SELECT_SOURCE, INPUT_FROM_PVR);
+	ioctl(*audio_fd, DEMUX_SELECT_SOURCE, INPUT_FROM_PVR);
 	if (ac3)
 		audioDecoder->SetStreamType(AUDIO_FMT_DOLBY_DIGITAL);
 	else
@@ -369,7 +495,7 @@ void cPlayback::playthread(void)
 static void playthread_cleanup_handler(void *arg)
 {
 	lt_info_c("%s\n", __FUNCTION__);
-	int admx_fd = (int)arg;
+	int admx_fd = *((int *)arg);
 	ioctl(admx_fd, DEMUX_SELECT_SOURCE, INPUT_FROM_CHANNEL0);
 	audioDemux->Stop();
 	videoDemux->Stop();
@@ -379,7 +505,12 @@ static void playthread_cleanup_handler(void *arg)
 	dvrfd = -1;
 }
 
-bool cPlayback::SetAPid(unsigned short pid, int _ac3)
+bool cPlayback::SetAPid(unsigned short pid, int ac3)
+{
+	return pd->SetAPid(pid, ac3);
+}
+
+bool PBPrivate::SetAPid(unsigned short pid, int _ac3)
 {
 	lt_info("%s pid: 0x%04hx ac3: %d\n", __FUNCTION__, pid, _ac3);
 	apid = pid;
@@ -410,6 +541,11 @@ bool cPlayback::SetAPid(unsigned short pid, int _ac3)
 
 bool cPlayback::SetSpeed(int speed)
 {
+	return pd->SetSpeed(speed);
+}
+
+bool PBPrivate::SetSpeed(int speed)
+{
 	lt_info("%s speed = %d\n", __FUNCTION__, speed);
 	if (speed < 0)
 		speed = 1; /* fast rewind not yet implemented... */
@@ -435,7 +571,7 @@ bool cPlayback::SetSpeed(int speed)
 	{
 		was_muted = audioDecoder->getMuteStatus();
 		audioDecoder->mute();
-		videoDecoder->vdec->FastForwardMode();
+		vdec->FastForwardMode();
 	}
 	playback_speed = speed;
 	if (playback_speed == 0)
@@ -450,12 +586,17 @@ bool cPlayback::SetSpeed(int speed)
 bool cPlayback::GetSpeed(int &speed) const
 {
 	lt_debug("%s\n", __FUNCTION__);
-	speed = playback_speed;
+	speed = pd->playback_speed;
 	return true;
 }
 
 // in milliseconds
 bool cPlayback::GetPosition(int &position, int &duration)
+{
+	return pd->GetPosition(position, duration);
+}
+
+bool PBPrivate::GetPosition(int &position, int &duration)
 {
 	int64_t tmppts;
 	lt_debug("%s\n", __FUNCTION__);
@@ -533,6 +674,11 @@ bool cPlayback::GetPosition(int &position, int &duration)
 
 bool cPlayback::SetPosition(int position, bool absolute)
 {
+	return pd->SetPosition(position, absolute);
+}
+
+bool PBPrivate::SetPosition(int position, bool absolute)
+{
 	lt_info("%s pos = %d abs = %d\n", __FUNCTION__, position, absolute);
 	int currpos, target, duration, oldspeed;
 	bool ret;
@@ -568,6 +714,11 @@ bool cPlayback::SetPosition(int position, bool absolute)
 }
 
 void cPlayback::FindAllPids(uint16_t *apids, unsigned short *ac3flags, uint16_t *numpida, std::string *language)
+{
+	pd->FindAllPids(apids, ac3flags, numpida, language);
+}
+
+void PBPrivate::FindAllPids(uint16_t *apids, unsigned short *ac3flags, uint16_t *numpida, std::string *language)
 {
 	lt_info("%s\n", __FUNCTION__);
 	int i = 0;
@@ -605,7 +756,7 @@ void cPlayback::RequestAbort(void)
 {
 }
 
-off_t cPlayback::seek_to_pts(int64_t pts)
+off_t PBPrivate::seek_to_pts(int64_t pts)
 {
 	off_t newpos = curr_pos;
 	int64_t tmppts, ptsdiff;
@@ -657,7 +808,7 @@ off_t cPlayback::seek_to_pts(int64_t pts)
 	return newpos;
 }
 
-bool cPlayback::filelist_auto_add()
+bool PBPrivate::filelist_auto_add()
 {
 	if (filelist.size() != 1)
 		return false;
@@ -695,7 +846,7 @@ bool cPlayback::filelist_auto_add()
 }
 
 /* the mf_* functions are wrappers for multiple-file I/O */
-int cPlayback::mf_open(int fileno)
+int PBPrivate::mf_open(int fileno)
 {
 	if (filelist.empty())
 		return -1;
@@ -713,7 +864,7 @@ int cPlayback::mf_open(int fileno)
 	return in_fd;
 }
 
-int cPlayback::mf_close(void)
+int PBPrivate::mf_close(void)
 {
 	int ret = 0;
 	lt_info("%s in_fd = %d curr_fileno = %d\n", __FUNCTION__, in_fd, curr_fileno);
@@ -724,7 +875,7 @@ int cPlayback::mf_close(void)
 	return ret;
 }
 
-off_t cPlayback::mf_getsize(void)
+off_t PBPrivate::mf_getsize(void)
 {
 	off_t ret = 0;
 	if (filelist.size() == 1 && in_fd != -1)
@@ -740,7 +891,7 @@ off_t cPlayback::mf_getsize(void)
 	return ret;
 }
 
-off_t cPlayback::mf_lseek(off_t pos)
+off_t PBPrivate::mf_lseek(off_t pos)
 {
 	off_t offset = 0, lpos = pos, ret;
 	unsigned int fileno;
@@ -786,7 +937,7 @@ off_t cPlayback::mf_lseek(off_t pos)
 
 /* gets the PTS at a specific file position from a PES
    ATTENTION! resets buf!  */
-int64_t cPlayback::get_PES_PTS(uint8_t *buf, int len, bool last)
+int64_t PBPrivate::get_PES_PTS(uint8_t *buf, int len, bool last)
 {
 	int64_t pts = -1;
 	int off, plen;
@@ -832,7 +983,7 @@ int64_t cPlayback::get_PES_PTS(uint8_t *buf, int len, bool last)
 }
 
 /* needs to be called with inbufpos_mutex locked! */
-ssize_t cPlayback::inbuf_read()
+ssize_t PBPrivate::inbuf_read()
 {
 	if (filetype == FILETYPE_UNKNOWN)
 		return -1;
@@ -842,7 +993,7 @@ ssize_t cPlayback::inbuf_read()
 	return read_mpeg();
 }
 
-ssize_t cPlayback::read_ts()
+ssize_t PBPrivate::read_ts()
 {
 	ssize_t toread, ret = 0, sync, off;
 	toread = INBUF_SIZE - inbuf_pos;
@@ -1057,7 +1208,7 @@ ssize_t cPlayback::read_ts()
 	return ret;
 }
 
-ssize_t cPlayback::read_mpeg()
+ssize_t PBPrivate::read_mpeg()
 {
 	ssize_t toread, ret, sync;
 	//toread = PESBUF_SIZE - pesbuf_pos;
@@ -1276,7 +1427,7 @@ ssize_t cPlayback::read_mpeg()
 //== returns offset to start of TS packet or actual ==
 //== pos on failure.                                ==
 //====================================================
-off_t cPlayback::mp_seekSync(off_t pos)
+off_t PBPrivate::mp_seekSync(off_t pos)
 {
 	off_t npos = pos;
 	off_t ret;
@@ -1399,7 +1550,7 @@ static int sync_ts(uint8_t *p, int len)
 
 /* get the pts value from a TS or PES packet
    pes == true selects PES mode. */
-int64_t cPlayback::get_pts(uint8_t *p, bool pes, int bufsize)
+int64_t PBPrivate::get_pts(uint8_t *p, bool pes, int bufsize)
 {
 	const uint8_t *end = p + bufsize; /* check for overflow */
 	if (bufsize < 14)
