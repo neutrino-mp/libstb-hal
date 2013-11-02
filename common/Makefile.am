@@ -8,4 +8,5 @@ AM_CXXFLAGS += \
 libcommon_la_SOURCES = \
 	ca.cpp \
 	lt_debug.c \
-	proc_tools.c
+	proc_tools.c \
+	pwrmngr.cpp

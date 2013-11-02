@@ -17,5 +17,4 @@ libtriple_la_SOURCES = \
 	audio_td.cpp \
 	init_td.cpp \
 	playback_td.cpp \
-	pwrmngr.cpp \
 	record_td.cpp

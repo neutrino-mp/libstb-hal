@@ -14,6 +14,5 @@ libazbox_la_SOURCES = \
 	audio.cpp \
 	init.cpp \
 	playback.cpp \
-	pwrmngr.cpp \
 	record.cpp
 

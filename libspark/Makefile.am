@@ -17,7 +17,6 @@ libspark_la_SOURCES = \
 	audio.cpp \
 	init.cpp \
 	playback_libeplayer3.cpp \
-	pwrmngr.cpp \
 	record.cpp
 
 AM_CPPFLAGS += -DF_INTERRUPTS=20000 -DIRMP_EMBED -DLIRC_IRMP
