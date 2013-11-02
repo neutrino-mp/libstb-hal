@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 
 #include <audio_lib.h>
-#include <video_lib.h>
+#include <video_priv.h>
 
 #include <common.h>
 extern OutputHandler_t		OutputHandler;
@@ -38,7 +38,7 @@ bool cPlayback::Open(playmode_t PlayMode)
 	if (PlayMode != PLAYMODE_TS)
 	{
 		audioDecoder->closeDevice();
-		videoDecoder->closeDevice();
+		videoDecoder->vdec->closeDevice();
 		decoders_closed = true;
 	}
 
@@ -81,7 +81,7 @@ void cPlayback::Close(void)
 	if (decoders_closed)
 	{
 		audioDecoder->openDevice();
-		videoDecoder->openDevice();
+		videoDecoder->vdec->openDevice();
 		decoders_closed = false;
 	}
 }
@@ -200,7 +200,7 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 		if (player && player->output && player->playback)
 		{
 			ret = true;
-			videoDecoder->Stop(false);
+			videoDecoder->vdec->Stop(false);
 			audioDecoder->Stop();
 		}
 	}
@@ -235,7 +235,7 @@ bool cPlayback::Stop(void)
 	return true;
 }
 
-bool cPlayback::SetAPid(unsigned short pid, bool ac3)
+bool cPlayback::SetAPid(unsigned short pid, bool /*ac3*/)
 {
 	printf("%s:%s\n", FILENAME, __FUNCTION__);
 	int i=pid;
@@ -254,7 +254,7 @@ bool cPlayback::SetSpeed(int speed)
 	if (! decoders_closed)
 	{
 		audioDecoder->closeDevice();
-		videoDecoder->closeDevice();
+		videoDecoder->vdec->closeDevice();
 		decoders_closed = true;
 		usleep(500000);
 		if (player && player->output && player->playback) {
@@ -400,7 +400,7 @@ bool cPlayback::GetPosition(int &position, int &duration)
 	return true;
 }
 
-bool cPlayback::SetPosition(int position, bool absolute)
+bool cPlayback::SetPosition(int position, bool /*absolute*/)
 {
 	printf("%s:%s %d\n", FILENAME, __FUNCTION__,position);
 	if (playing == false)
@@ -483,7 +483,7 @@ void cPlayback::RequestAbort(void)
 }
 
 //
-cPlayback::cPlayback(int num)
+cPlayback::cPlayback(int /*num*/)
 {
 	printf("%s:%s\n", FILENAME, __FUNCTION__);
 	playing=false;

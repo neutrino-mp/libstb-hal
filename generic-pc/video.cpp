@@ -38,7 +38,7 @@ extern "C" {
 /* my own buf 256k */
 #define DMX_BUF_SZ 0x20000
 
-#include "video_lib.h"
+#include "video_hal.h"
 #include "dmx_hal.h"
 #include "glfb_priv.h"
 #include "video_priv.h"

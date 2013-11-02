@@ -20,7 +20,7 @@
 #include <OpenThreads/Thread>
 #include <OpenThreads/Mutex>
 
-#include "video_lib.h"
+#include "video_hal.h"
 extern "C" {
 #include <libavutil/rational.h>
 }

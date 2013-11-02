@@ -12,7 +12,8 @@
 #include "playback_td.h"
 #include "dmx_hal.h"
 #include "audio_td.h"
-#include "video_td.h"
+#include "video_hal.h"
+#include "video_priv.h"
 #include "lt_debug.h"
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_PLAYBACK, this, args)
 #define lt_info(args...)  _lt_info(TRIPLE_DEBUG_PLAYBACK, this, args)
@@ -432,7 +433,7 @@ bool cPlayback::SetSpeed(int speed)
 	if (playback_speed == 1 && speed > 1)
 	{
 		audioDecoder->mute(false);
-		videoDecoder->FastForwardMode();
+		videoDecoder->vdec->FastForwardMode();
 	}
 	playback_speed = speed;
 	if (playback_speed == 0)
@@ -1212,7 +1213,7 @@ ssize_t cPlayback::read_mpeg()
 		int pesPacketLen = ((ppes[4] << 8) | ppes[5]) + 6;
 		if (count + pesPacketLen >= pesbuf_pos)
 		{
-			lt_debug("buffer len: %ld, pesPacketLen: %d :-(\n", pesbuf_pos - count, pesPacketLen);
+			lt_debug("buffer len: %ld, pesPacketLen: %d :-(\n", (long)(pesbuf_pos - count), pesPacketLen);
 			break;
 		}
 

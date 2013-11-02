@@ -9,7 +9,7 @@
 
 #include <cstring>
 #include "playback_lib.h"
-#include "dmx_lib.h"
+#include "dmx_hal.h"
 #include "audio_lib.h"
 #include "video_lib.h"
 #include "lt_debug.h"

@@ -34,7 +34,7 @@
 #include "lt_debug.h"
 
 /* Ugh... see comment in destructor for details... */
-#include "video_td.h"
+#include "video_hal.h"
 extern cVideo *videoDecoder;
 
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_DEMUX, this, args)

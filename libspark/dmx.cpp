@@ -69,8 +69,8 @@
 #include "dmx_hal.h"
 #include "lt_debug.h"
 
+#include "video_priv.h"
 /* Ugh... see comment in destructor for details... */
-#include "video_lib.h"
 extern cVideo *videoDecoder;
 
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_DEMUX, this, args)
@@ -579,7 +579,7 @@ void cDemux::getSTC(int64_t * STC)
 	lt_debug("%s #%d\n", __func__, num);
 	int64_t pts = 0;
 	if (videoDecoder)
-		pts = videoDecoder->GetPTS();
+		pts = videoDecoder->vdec->GetPTS();
 	*STC = pts;
 }
 

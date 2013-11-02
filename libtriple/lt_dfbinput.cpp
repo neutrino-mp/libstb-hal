@@ -40,8 +40,8 @@
 #include "lt_dfbinput.h"
 
 /* needed for videodecoder watchdog */
-#include "video_td.h"
-extern cVideo *videoDecoder;
+#include "video_priv.h"
+extern VDec *_vdec;
 
 /* same defines as in neutrino's rcinput.h */
 #define KEY_TTTV	KEY_FN_1
@@ -249,8 +249,8 @@ static void *input_thread(void *data)
 	{
 		/* check every 250ms (if a key is pressed on remote, we might
 		 * even check earlier, but it does not really hurt... */
-		if (videoDecoder)
-			videoDecoder->VideoParamWatchdog();
+		if (_vdec)
+			_vdec->VideoParamWatchdog();
 
 		if (events->WaitForEventWithTimeout(events, 0, 250) == DFB_TIMEOUT)
 			continue;

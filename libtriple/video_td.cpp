@@ -34,7 +34,9 @@
 #include <avs/avs_inf.h>
 #include <clip/clipinfo.h>
 #include <hw/hardware.h>
-#include "video_td.h"
+#include "video_hal.h"
+#include "video_priv.h"
+
 #include <hardware/tddevices.h>
 #define VIDEO_DEVICE "/dev/" DEVICE_NAME_VIDEO
 #include "lt_debug.h"
@@ -53,7 +55,11 @@
 	_r;						\
 })
 
+/* catch errors due to usage of class member vdec */
+#define vdec __this_is_the_wrong_vdec__
+
 cVideo * videoDecoder = NULL;
+VDec * _vdec = NULL;
 int system_rev = 0;
 
 #if 0
@@ -64,13 +70,23 @@ extern IDirectFB *dfb;
 extern IDirectFBSurface *dfbdest;
 #endif
 
-extern struct Ssettings settings;
 static pthread_mutex_t stillp_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* debugging hacks */
 static bool noscart = false;
 
 cVideo::cVideo(int, void *, void *, unsigned int)
+{
+	_vdec = new VDec();
+}
+
+cVideo::~cVideo(void)
+{
+	delete _vdec;
+	_vdec = NULL;
+}
+
+VDec::VDec(void)
 {
 	lt_debug("%s\n", __FUNCTION__);
 	if ((fd = open(VIDEO_DEVICE, O_RDWR)) < 0)
@@ -124,7 +140,7 @@ cVideo::cVideo(int, void *, void *, unsigned int)
 		lt_info("%s TRIPLE_NOSCART variable prevents SCART switching\n", __FUNCTION__);
 }
 
-cVideo::~cVideo(void)
+VDec::~VDec(void)
 {
 	playstate = VIDEO_STOPPED;
 	for (int i = 0; i < 2; i++)
@@ -140,6 +156,11 @@ cVideo::~cVideo(void)
 }
 
 int cVideo::setAspectRatio(int aspect, int mode)
+{
+	return _vdec->setAspectRatio(aspect, mode);
+}
+
+int VDec::setAspectRatio(int aspect, int mode)
 {
 	static int _mode = -1;
 	static int _aspect = -1;
@@ -248,6 +269,11 @@ int cVideo::setAspectRatio(int aspect, int mode)
 
 int cVideo::getAspectRatio(void)
 {
+	return _vdec->getAspectRatio();
+}
+
+int VDec::getAspectRatio(void)
+{
 	VIDEOINFO v;
 	/* this memset silences *TONS* of valgrind warnings */
 	memset(&v, 0, sizeof(v));
@@ -271,7 +297,12 @@ int cVideo::getAspectRatio(void)
 	}
 }
 
-int cVideo::setCroppingMode(vidDispMode_t format)
+int cVideo::setCroppingMode(void)
+{
+	return _vdec->setCroppingMode();
+}
+
+int VDec::setCroppingMode(vidDispMode_t format)
 {
 	croppingMode = format;
 	const char *format_string[] = { "norm", "letterbox", "unknown", "mode_1_2", "mode_1_4", "mode_2x", "scale", "disexp" };
@@ -286,6 +317,11 @@ int cVideo::setCroppingMode(vidDispMode_t format)
 
 int cVideo::Start(void * /*PcrChannel*/, unsigned short /*PcrPid*/, unsigned short /*VideoPid*/, void * /*hChannel*/)
 {
+	return _vdec->Start();
+}
+
+int VDec::Start(void)
+{
 	lt_debug("%s playstate=%d\n", __FUNCTION__, playstate);
 	if (playstate == VIDEO_PLAYING)
 		return 0;
@@ -298,18 +334,28 @@ int cVideo::Start(void * /*PcrChannel*/, unsigned short /*PcrPid*/, unsigned sho
 
 int cVideo::Stop(bool blank)
 {
+	return _vdec->Stop(blank);
+}
+
+int VDec::Stop(bool blank)
+{
 	lt_debug("%s(%d)\n", __FUNCTION__, blank);
 	if (blank)
 	{
 		playstate = VIDEO_STOPPED;
 		fop(ioctl, MPEG_VID_STOP);
-		return setBlank(1);
+		return setBlank();
 	}
 	playstate = VIDEO_FREEZED;
 	return fop(ioctl, MPEG_VID_FREEZE);
 }
 
 int cVideo::setBlank(int)
+{
+	return _vdec->setBlank();
+}
+
+int VDec::setBlank(void)
 {
 	lt_debug("%s\n", __FUNCTION__);
 	/* The TripleDragon has no VIDEO_SET_BLANK ioctl.
@@ -360,18 +406,39 @@ int cVideo::setBlank(int)
 
 int cVideo::SetVideoSystem(int video_system, bool remember)
 {
+	return _vdec->SetVideoSystem(video_system, remember);
+}
+
+int VDec::SetVideoSystem(int video_system, bool remember)
+{
 	lt_info("%s(%d, %d)\n", __FUNCTION__, video_system, remember);
-	if (video_system > VID_DISPFMT_SECAM || video_system < 0)
-		video_system = VID_DISPFMT_PAL;
-        return fop(ioctl, MPEG_VID_SET_DISPFMT, video_system);
+	vidDispFmt_t tmp;
+	switch (video_system) {
+		case VIDEO_STD_SECAM:
+			tmp = VID_DISPFMT_SECAM;
+			break;
+		case VIDEO_STD_NTSC:
+			tmp = VID_DISPFMT_NTSC;
+			break;
+		case VIDEO_STD_PAL:
+		default:
+			tmp = VID_DISPFMT_PAL;
+			break;
+	}
+	return fop(ioctl, MPEG_VID_SET_DISPFMT, tmp);
 }
 
 int cVideo::getPlayState(void)
 {
-	return playstate;
+	return _vdec->playstate;
 }
 
 void cVideo::SetVideoMode(analog_mode_t mode)
+{
+	_vdec->SetVideoMode(mode);
+}
+
+void VDec::SetVideoMode(analog_mode_t mode)
 {
 	lt_debug("%s(%d)\n", __FUNCTION__, mode);
 	switch(mode)
@@ -390,6 +457,11 @@ void cVideo::SetVideoMode(analog_mode_t mode)
 }
 
 void cVideo::ShowPicture(const char * fname)
+{
+	_vdec->ShowPicture(fname);
+}
+
+void VDec::ShowPicture(const char * fname)
 {
 	lt_debug("%s(%s)\n", __FUNCTION__, fname);
 	char destname[512];
@@ -485,16 +557,26 @@ void cVideo::ShowPicture(const char * fname)
 
 void cVideo::StopPicture()
 {
+	_vdec->StopPicture();
+}
+
+void VDec::StopPicture()
+{
 	lt_debug("%s\n", __FUNCTION__);
 	fop(ioctl, MPEG_VID_SELECT_SOURCE, VID_SOURCE_DEMUX);
 }
 
 void cVideo::Standby(unsigned int bOn)
 {
+	_vdec->Standby(bOn);
+}
+
+void VDec::Standby(unsigned int bOn)
+{
 	lt_debug("%s(%d)\n", __FUNCTION__, bOn);
 	if (bOn)
 	{
-		setBlank(1);
+		setBlank();
 		fop(ioctl, MPEG_VID_SET_OUTFMT, VID_OUTFMT_DISABLE_DACS);
 	} else
 		fop(ioctl, MPEG_VID_SET_OUTFMT, outputformat);
@@ -503,6 +585,11 @@ void cVideo::Standby(unsigned int bOn)
 }
 
 int cVideo::getBlank(void)
+{
+	return _vdec->getBlank();
+}
+
+int VDec::getBlank(void)
 {
 	VIDEOINFO v;
 	memset(&v, 0, sizeof(v));
@@ -516,7 +603,7 @@ int cVideo::getBlank(void)
 }
 
 /* set zoom in percent (100% == 1:1) */
-int cVideo::setZoom(int zoom)
+int VDec::setZoom(int zoom)
 {
 	if (zoom == -1) // "auto" reset
 		zoom = *zoomvalue;
@@ -604,7 +691,7 @@ void cVideo::setZoomAspect(int index)
 
 /* this function is regularly called, checks if video parameters
    changed and triggers appropriate actions */
-void cVideo::VideoParamWatchdog(void)
+void VDec::VideoParamWatchdog(void)
 {
 	static unsigned int _v_info = (unsigned int) -1;
 	unsigned int v_info;
@@ -620,6 +707,11 @@ void cVideo::VideoParamWatchdog(void)
 }
 
 void cVideo::Pig(int x, int y, int w, int h, int /*osd_w*/, int /*osd_h*/)
+{
+	_vdec->Pig(x, y, w, h);
+}
+
+void VDec::Pig(int x, int y, int w, int h)
 {
 	/* x = y = w = h = -1 -> reset / "hide" PIG */
 	if (x == -1 && y == -1 && w == -1 && h == -1)
@@ -649,7 +741,7 @@ void cVideo::getPictureInfo(int &width, int &height, int &rate)
 	VIDEOINFO v;
 	/* this memset silences *TONS* of valgrind warnings */
 	memset(&v, 0, sizeof(v));
-	ioctl(fd, MPEG_VID_GET_V_INFO, &v);
+	ioctl(_vdec->fd, MPEG_VID_GET_V_INFO, &v);
 	/* convert to Coolstream API */
 	rate = (int)v.frame_rate - 1;
 	width = (int)v.h_size;
@@ -664,6 +756,7 @@ void cVideo::SetSyncMode(AVSYNC_TYPE Mode)
 	 * { 1, LOCALE_OPTIONS_ON  },
 	 * { 2, LOCALE_AUDIOMENU_AVSYNC_AM }
 	 */
+	int fd = _vdec->fd;
 	switch(Mode)
 	{
 		case 0:
@@ -693,7 +786,7 @@ int cVideo::SetStreamType(VIDEO_FORMAT type)
 	return 0;
 }
 
-void cVideo::routeVideo(int standby)
+void VDec::routeVideo(int standby)
 {
 	lt_debug("%s(%d)\n", __FUNCTION__, standby);
 
@@ -729,7 +822,7 @@ void cVideo::routeVideo(int standby)
 	close(avsfd);
 }
 
-void cVideo::FastForwardMode(int mode)
+void VDec::FastForwardMode(int mode)
 {
 	lt_debug("%s\n", __FUNCTION__);
 	fop(ioctl, MPEG_VID_FASTFORWARD, mode);

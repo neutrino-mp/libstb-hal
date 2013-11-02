@@ -23,7 +23,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "video_lib.h"
+#include "video_hal.h"
 #include "dmx_hal.h"
 #include "avdec.h"
 #include "lt_debug.h"
@@ -40,9 +40,6 @@ extern AVDec *avdec;
 cVideo::cVideo(int, void *, void *, unsigned int)
 {
 	lt_debug("%s\n", __func__);
-	display_aspect = DISPLAY_AR_16_9;
-	display_crop = DISPLAY_AR_MODE_LETTERBOX;
-	v_format = VIDEO_FORMAT_MPEG2;
 }
 
 cVideo::~cVideo(void)
@@ -61,21 +58,21 @@ int cVideo::getAspectRatio(void)
 	return ret;
 }
 
-int cVideo::setCroppingMode(int)
+int cVideo::setCroppingMode(void)
 {
 	return 0;
 }
 
 int cVideo::Start(void *, unsigned short, unsigned short, void *)
 {
-	lt_debug("%s running %d >\n", __func__, thread_running);
+	lt_debug("%s >\n", __func__);
 	avdec->start_video();
 	return 0;
 }
 
 int cVideo::Stop(bool)
 {
-	lt_debug("%s running %d >\n", __func__, thread_running);
+	lt_debug("%s >\n", __func__);
 	avdec->stop_video();
 	return 0;
 }
@@ -85,6 +82,7 @@ int cVideo::setBlank(int)
 	return 1;
 }
 
+/* this is a dummy */
 int cVideo::SetVideoSystem(int system, bool)
 {
 	int h;
@@ -118,14 +116,13 @@ int cVideo::SetVideoSystem(int system, bool)
 			lt_info("%s: unhandled value %d\n", __func__, system);
 			return 0;
 	}
-	v_std = (VIDEO_STD) system;
-	output_h = h;
+	lt_debug("%s: pic height is %d\n", __func__, h);
 	return 0;
 }
 
 int cVideo::getPlayState(void)
 {
-	return VIDEO_PLAYING;
+	return 1; //VIDEO_PLAYING;
 }
 
 void cVideo::SetVideoMode(analog_mode_t)
@@ -154,18 +151,14 @@ int cVideo::getBlank(void)
 
 void cVideo::Pig(int x, int y, int w, int h, int, int)
 {
-	pig_x = x;
-	pig_y = y;
-	pig_w = w;
-	pig_h = h;
 	avdec->pig(x, y, w, h);
 }
 
 void cVideo::getPictureInfo(int &width, int &height, int &rate)
 {
-	width = dec_w;
-	height = dec_h;
-	rate = dec_r;
+	width = 1; //dec_w;
+	height = 1; //dec_h;
+	rate = 1; //dec_r;
 }
 
 void cVideo::SetSyncMode(AVSYNC_TYPE)
@@ -174,7 +167,6 @@ void cVideo::SetSyncMode(AVSYNC_TYPE)
 
 int cVideo::SetStreamType(VIDEO_FORMAT v)
 {
-	v_format = v;
 	return avdec->set_videoformat(v);
 }
 
@@ -183,12 +175,6 @@ bool cVideo::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool ge
 	lt_info("%s: data 0x%p xres %d yres %d vid %d osd %d scale %d\n",
 		__func__, data, xres, yres, get_video, get_osd, scale_to_video);
 	return false;
-}
-
-int64_t cVideo::GetPTS(void)
-{
-	int64_t pts = 0;
-	return pts;
 }
 
 void cVideo::SetDemux(cDemux *)

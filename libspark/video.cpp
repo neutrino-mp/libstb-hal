@@ -33,7 +33,8 @@
 
 #include <linux/dvb/video.h>
 #include <linux/stmfb.h>
-#include "video_lib.h"
+#include "video_hal.h"
+#include "video_priv.h"
 #include "lt_debug.h"
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_VIDEO, this, args)
 #define lt_info(args...) _lt_info(TRIPLE_DEBUG_VIDEO, this, args)
@@ -54,10 +55,10 @@
 
 cVideo * videoDecoder = NULL;
 cVideo * pipDecoder = NULL;
+
 int system_rev = 0;
 
 static bool hdmi_enabled = true;
-static bool stillpicture = false;
 
 static const char *VDEV[] = {
 	"/dev/dvb/adapter0/video0",
@@ -173,12 +174,21 @@ out:
 
 cVideo::cVideo(int, void *, void *, unsigned int unit)
 {
+	vdec = new VDec(unit);
+}
+
+cVideo::~cVideo(void)
+{
+	delete vdec;
+	vdec = NULL;
+}
+
+VDec::VDec(unsigned int unit)
+{
 	lt_debug("%s unit %u\n", __func__, unit);
 
-	//croppingMode = VID_DISPMODE_NORM;
-	//outputformat = VID_OUTFMT_RGBC_SVIDEO;
-	scartvoltage = -1;
 	video_standby = 0;
+	stillpicture = false;
 	if (unit > 1) {
 		lt_info("%s: unit %d out of range, setting to 0\n", __func__, unit);
 		devnum = 0;
@@ -188,12 +198,12 @@ cVideo::cVideo(int, void *, void *, unsigned int unit)
 	openDevice();
 }
 
-cVideo::~cVideo(void)
+VDec::~VDec(void)
 {
 	closeDevice();
 }
 
-void cVideo::openDevice(void)
+void VDec::openDevice(void)
 {
 	int n = 0;
 	lt_debug("#%d: %s\n", devnum, __func__);
@@ -215,7 +225,7 @@ retry:
 	playstate = VIDEO_STOPPED;
 }
 
-void cVideo::closeDevice(void)
+void VDec::closeDevice(void)
 {
 	lt_debug("%s\n", __func__);
 	/* looks like sometimes close is unhappy about non-empty buffers */
@@ -255,6 +265,11 @@ int cVideo::setAspectRatio(int aspect, int mode)
 
 int cVideo::getAspectRatio(void)
 {
+	return vdec->getAspectRatio();
+}
+
+int VDec::getAspectRatio(void)
+{
 	video_size_t s;
 	if (fd == -1)
 	{
@@ -271,7 +286,7 @@ int cVideo::getAspectRatio(void)
 	return s.aspect_ratio * 2 + 1;
 }
 
-int cVideo::setCroppingMode(int /*vidDispMode_t format*/)
+int cVideo::setCroppingMode(void)
 {
 	return 0;
 #if 0
@@ -289,6 +304,16 @@ int cVideo::setCroppingMode(int /*vidDispMode_t format*/)
 
 int cVideo::Start(void * /*PcrChannel*/, unsigned short /*PcrPid*/, unsigned short /*VideoPid*/, void * /*hChannel*/)
 {
+	return vdec->Start();
+}
+
+int cVideo::Stop(bool blank)
+{
+	return vdec->Stop(blank);
+}
+
+int VDec::Start(void)
+{
 	lt_debug("#%d: %s playstate=%d\n", devnum, __func__, playstate);
 #if 0
 	if (playstate == VIDEO_PLAYING)
@@ -301,7 +326,7 @@ int cVideo::Start(void * /*PcrChannel*/, unsigned short /*PcrPid*/, unsigned sho
 	return fop(ioctl, VIDEO_PLAY);
 }
 
-int cVideo::Stop(bool blank)
+int VDec::Stop(bool blank)
 {
 	lt_debug("#%d: %s(%d)\n", devnum, __func__, blank);
 	if (stillpicture)
@@ -352,7 +377,7 @@ int cVideo::SetVideoSystem(int video_system, bool remember)
 	}
 	lt_info("%s: old: '%s' new: '%s'\n", __func__, current, modes[video_system]);
 	bool stopped = false;
-	if (playstate == VIDEO_PLAYING)
+	if (vdec->playstate == VIDEO_PLAYING)
 	{
 		lt_info("%s: playstate == VIDEO_PLAYING, stopping video\n", __func__);
 		Stop();
@@ -369,12 +394,12 @@ int cVideo::SetVideoSystem(int video_system, bool remember)
 
 int cVideo::getPlayState(void)
 {
-	return playstate;
+	return vdec->playstate;
 }
 
 void cVideo::SetVideoMode(analog_mode_t mode)
 {
-	lt_debug("#%d: %s(%d)\n", devnum, __func__, mode);
+	lt_debug("#%d: %s(%d)\n", vdec->devnum, __func__, mode);
 	if (!(mode & ANALOG_SCART_MASK))
 	{
 		lt_debug("%s: non-SCART mode ignored\n", __func__);
@@ -398,6 +423,11 @@ void cVideo::SetVideoMode(analog_mode_t mode)
 }
 
 void cVideo::ShowPicture(const char * fname)
+{
+	vdec->ShowPicture(fname);
+}
+
+void VDec::ShowPicture(const char * fname)
 {
 	lt_debug("%s(%s)\n", __func__, fname);
 	static const unsigned char pes_header[] = { 0x00, 0x00, 0x01, 0xE0, 0x00, 0x00, 0x80, 0x00, 0x00 };
@@ -492,10 +522,15 @@ void cVideo::ShowPicture(const char * fname)
 void cVideo::StopPicture()
 {
 	lt_debug("%s\n", __func__);
-	stillpicture = false;
+	vdec->stillpicture = false;
 }
 
 void cVideo::Standby(unsigned int bOn)
+{
+	vdec->Standby(bOn);
+}
+
+void VDec::Standby(unsigned int bOn)
 {
 	lt_debug("%s(%d)\n", __func__, bOn);
 	if (bOn)
@@ -546,28 +581,9 @@ int cVideo::getBlank(void)
 	free(line);
 	fclose(f);
 	int ret = (count == lastcount); /* no new decode -> return 1 */
-	lt_debug("#%d: %s: %d (irq++: %d)\n", devnum, __func__, ret, count - lastcount);
+	lt_debug("#%d: %s: %d (irq++: %d)\n", vdec->devnum, __func__, ret, count - lastcount);
 	lastcount = count;
 	return ret;
-}
-
-/* this function is regularly called, checks if video parameters
-   changed and triggers appropriate actions */
-void cVideo::VideoParamWatchdog(void)
-{
-#if 0
-	static unsigned int _v_info = (unsigned int) -1;
-	unsigned int v_info;
-	if (fd == -1)
-		return;
-	ioctl(fd, MPEG_VID_GET_V_INFO_RAW, &v_info);
-	if (_v_info != v_info)
-	{
-		lt_debug("%s params changed. old: %08x new: %08x\n", __FUNCTION__, _v_info, v_info);
-		setAspectRatio(-1, -1);
-	}
-	_v_info = v_info;
-#endif
 }
 
 void cVideo::Pig(int x, int y, int w, int h, int osd_w, int osd_h)
@@ -578,7 +594,7 @@ void cVideo::Pig(int x, int y, int w, int h, int osd_w, int osd_h)
 	 * TODO: check this in the driver sources */
 	int xres = 720; /* proc_get_hex("/proc/stb/vmpeg/0/xres") */
 	int yres = 576; /* proc_get_hex("/proc/stb/vmpeg/0/yres") */
-	lt_debug("#%d %s: x:%d y:%d w:%d h:%d ow:%d oh:%d\n", devnum, __func__, x, y, w, h, osd_w, osd_h);
+	lt_debug("#%d %s: x:%d y:%d w:%d h:%d ow:%d oh:%d\n", vdec->devnum, __func__, x, y, w, h, osd_w, osd_h);
 	if (x == -1 && y == -1 && w == -1 && h == -1)
 	{
 		_w = xres;
@@ -593,9 +609,9 @@ void cVideo::Pig(int x, int y, int w, int h, int osd_w, int osd_h)
 		_y = y * yres / osd_h;
 		_h = h * yres / osd_h;
 	}
-	lt_debug("#%d %s: x:%d y:%d w:%d h:%d xr:%d yr:%d\n", devnum, __func__, _x, _y, _w, _h, xres, yres);
+	lt_debug("#%d %s: x:%d y:%d w:%d h:%d xr:%d yr:%d\n", vdec->devnum, __func__, _x, _y, _w, _h, xres, yres);
 	sprintf(buffer, "%x %x %x %x", _x, _y, _w, _h);
-	proc_put(VMPEG_dst_all[devnum], buffer, strlen(buffer));
+	proc_put(VMPEG_dst_all[vdec->devnum], buffer, strlen(buffer));
 }
 
 static inline int rate2csapi(int rate)
@@ -625,6 +641,11 @@ static inline int rate2csapi(int rate)
 }
 
 void cVideo::getPictureInfo(int &width, int &height, int &rate)
+{
+	vdec->getPictureInfo(width, height, rate);
+}
+
+void VDec::getPictureInfo(int &width, int &height, int &rate)
 {
 	video_size_t s;
 	int r;
@@ -663,6 +684,11 @@ void cVideo::SetSyncMode(AVSYNC_TYPE mode)
 
 int cVideo::SetStreamType(VIDEO_FORMAT type)
 {
+	return vdec->SetStreamType(type);
+}
+
+int VDec::SetStreamType(VIDEO_FORMAT type)
+{
 	static const char *VF[] = {
 		"VIDEO_FORMAT_MPEG2",
 		"VIDEO_FORMAT_MPEG4",
@@ -693,7 +719,7 @@ int cVideo::SetStreamType(VIDEO_FORMAT type)
 	return 0;
 }
 
-int64_t cVideo::GetPTS(void)
+int64_t VDec::GetPTS(void)
 {
 	int64_t pts = 0;
 	if (ioctl(fd, VIDEO_GET_PTS, &pts) < 0)
@@ -703,5 +729,5 @@ int64_t cVideo::GetPTS(void)
 
 void cVideo::SetDemux(cDemux *)
 {
-	lt_debug("#%d %s not implemented yet\n", devnum, __func__);
+	lt_debug("#%d %s not implemented yet\n", vdec->devnum, __func__);
 }
