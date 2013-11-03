@@ -39,3 +39,26 @@ libstb_hal_la_LIBADD += \
 	libspark/libspark.la \
 	libeplayer3/libeplayer3.la
 endif
+
+pkginclude_HEADERS = \
+	include/audio_hal.h \
+	include/audio_td.h \
+	include/ca_cs.h \
+	include/ca.h \
+	include/cs_api.h \
+	include/cs_types.h \
+	include/dmx_cs.h \
+	include/dmx_hal.h \
+	include/dmx_td.h \
+	include/glfb.h \
+	include/hardware_caps.h \
+	include/init_cs.h \
+	include/init_td.h \
+	include/mmi.h \
+	include/playback.h \
+	include/playback_hal.h \
+	include/pwrmngr.h \
+	include/record_hal.h \
+	include/record_td.h \
+	include/video_hal.h \
+	include/video_td.h
