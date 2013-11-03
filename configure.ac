@@ -35,10 +35,17 @@ if test x$BOXTYPE = xgeneric; then
 		# egl are the broadcom userspace libs
 		# e.g. yocto (openembedded) has a egl package built from userland git.
 		# Use that if available. If not, just fall back to /opt/vc/...
-		PKG_CHECK_MODULES([EGL], [egl], echo "EGL userspace package found. Good.",
+		#
+		# note the ugly EGL_LIBS hack: egl package actually only really supplies
+		# the include paths and linker paths, we don't want to really link against
+		# libGLESv2 and libEGL, so I'm overriding the pkg-config result and add the
+		# openmaxil etc... libs manually
+		PKG_CHECK_MODULES([EGL], [egl], echo "EGL userspace package found. Good."
+				  _PKG_CONFIG(EGL_LIBS, [libs-only-L], [egl])
+				  EGL_LIBS="$EGL_LIBS -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -pthread",
 			[ echo "EGL package not found, assuming /opt/vc/..."
 			  EGL_CFLAGS="-I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads/ -I/opt/vc/include/interface/vmcs_host/linux"
-			  EGL_LIBS="-L/opt/vc/lib/ -lopenmaxil -lbcm_host -lvcos -lvchiq_arm"
+			  EGL_LIBS="-L/opt/vc/lib/ -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -pthread"
 			])
 		# raspbian has no current versions and only libav instead of ffmpeg... :-(
 		PKG_CHECK_MODULES([AVFORMAT], [libavformat])
