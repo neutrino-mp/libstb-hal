@@ -32,6 +32,14 @@ if test x$BOXTYPE = xgeneric; then
 		PKG_CHECK_MODULES([SWSCALE], [libswscale])
 		PKG_CHECK_MODULES([SWRESAMPLE], [libswresample])
 	else
+		# egl are the broadcom userspace libs
+		# e.g. yocto (openembedded) has a egl package built from userland git.
+		# Use that if available. If not, just fall back to /opt/vc/...
+		PKG_CHECK_MODULES([EGL], [egl], echo "EGL userspace package found. Good.",
+			[ echo "EGL package not found, assuming /opt/vc/..."
+			  EGL_CFLAGS="-I/opt/vc/include -I/opt/vc/include/interface/vcos/pthreads/ -I/opt/vc/include/interface/vmcs_host/linux"
+			  EGL_LIBS="-L/opt/vc/lib/ -lopenmaxil -lbcm_host -lvcos -lvchiq_arm"
+			])
 		# raspbian has no current versions and only libav instead of ffmpeg... :-(
 		PKG_CHECK_MODULES([AVFORMAT], [libavformat])
 		PKG_CHECK_MODULES([AVCODEC], [libavcodec])
