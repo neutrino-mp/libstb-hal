@@ -60,7 +60,7 @@ struct codec_t
   OMX_VIDEO_CODINGTYPE vcodectype;
   int width;
   int height;
-  enum CodecID acodectype;
+//  enum CodecID acodectype;
   int first_packet;
 };
 
