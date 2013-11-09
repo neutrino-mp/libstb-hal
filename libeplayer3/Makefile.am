@@ -27,9 +27,14 @@ AM_CFLAGS = -Wall -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOUR
 # silence ffmpeg deprecation warnings
 #AM_CPPFLAGS = -Dattribute_deprecated=''
 
-#libeplayer3_la_LIBADD = -lpthread -lavformat -lavcodec -lavutil -lz -lass -lm -lpng
+AM_LDFLAGS = \
+	@AVFORMAT_LIBS@ \
+	@AVCODEC_LIBS@ \
+	@AVUTIL_LIBS@ \
+	@SWRESAMPLE_LIBS@ \
+	-lpthread -lz -lass -lm -lpng
 
-LIBEPLAYER3_LIBS = libeplayer3.la -lpthread -lavformat -lavcodec -lavutil -lswresample -lz -lass -lm -lpng
+LIBEPLAYER3_LIBS = libeplayer3.la
 bin_PROGRAMS = eplayer3 meta
 eplayer3_SOURCES = tools/eplayer2.c
 eplayer3_LDADD = $(LIBEPLAYER3_LIBS)

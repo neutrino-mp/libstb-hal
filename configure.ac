@@ -49,6 +49,14 @@ if test x$BOXTYPE = xgeneric; then
 	# don't know which version is exactly needed here...
 	PKG_CHECK_MODULES([AVUTIL], [libavutil])
 fi
+if test x$BOXTYPE = xspark; then
+	# versions are probably not correct :-(
+	PKG_CHECK_MODULES([AVFORMAT], [libavformat >= 53.21.1])
+	PKG_CHECK_MODULES([AVCODEC], [libavcodec >= 54.28.0])
+	PKG_CHECK_MODULES([SWRESAMPLE], [libswresample])
+	PKG_CHECK_MODULES([AVUTIL], [libavutil])
+fi
+
 AC_OUTPUT([
 Makefile
 common/Makefile
