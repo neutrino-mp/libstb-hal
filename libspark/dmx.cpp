@@ -357,6 +357,7 @@ bool cDemux::sectionFilter(unsigned short _pid, const unsigned char * const filt
 		lt_info("%s #%d: len too long: %d, DMX_FILTER_SIZE %d\n", __func__, num, len, DMX_FILTER_SIZE);
 		len = DMX_FILTER_SIZE;
 	}
+	flt = filter[0];
 	s_flt.pid = pid;
 	s_flt.timeout = timeout;
 	memcpy(s_flt.filter.filter, filter, len);
