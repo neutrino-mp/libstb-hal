@@ -89,7 +89,7 @@ cDemux::cDemux(int n)
 	else
 		num = n;
 	fd = -1;
-	pdata = calloc(1, sizeof(pdata));
+	pdata = calloc(1, sizeof(dmx_pdata));
 	P->measure = false;
 	P->last_measure = 0;
 	P->last_data = 0;
