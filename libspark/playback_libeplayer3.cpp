@@ -355,10 +355,12 @@ bool cPlayback::GetSpeed(int &speed) const
 	return true;
 }
 
+#if 0
 void cPlayback::GetPts(uint64_t &pts)
 {
 	player->playback->Command(player, PLAYBACK_PTS, (void*)pts);
 }
+#endif
 
 // in milliseconds
 bool cPlayback::GetPosition(int &position, int &duration)
@@ -450,6 +452,8 @@ bool cPlayback::SetPosition(int position, bool /*absolute*/)
 void cPlayback::FindAllPids(uint16_t *apids, unsigned short *ac3flags, uint16_t *numpida, std::string *language)
 {
 	printf("%s:%s\n", FILENAME, __FUNCTION__);
+	int max_numpida = 10; // REC_MAX_APIDS in neutrino
+	*numpida = 0;
 	if(player && player->manager && player->manager->audio) {
 		char ** TrackList = NULL;
 		player->manager->audio->Command(player, MANAGER_LIST, &TrackList);
