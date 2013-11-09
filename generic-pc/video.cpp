@@ -71,6 +71,8 @@ cVideo::cVideo(int, void *, void *, unsigned int)
 {
 	lt_debug("%s\n", __func__);
 	vdec = new VDec();
+	/* quick hack to export private stuff to other libstb-hal modules */
+	::vdec = vdec;
 }
 
 VDec::VDec()
@@ -391,9 +393,9 @@ void cVideo::getPictureInfo(int &width, int &height, int &rate)
 
 void VDec::getPictureInfo(int &width, int &height, int &rate)
 {
-	width = vdec->dec_w;
-	height = vdec->dec_h;
-	rate = vdec->dec_r;
+	width = dec_w;
+	height = dec_h;
+	rate = dec_r;
 }
 
 void cVideo::SetSyncMode(AVSYNC_TYPE)
