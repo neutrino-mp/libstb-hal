@@ -436,7 +436,6 @@ static void FFMPEGThread(Context_t *context) {
 	    Track_t * subtitleTrack = NULL;
 	    Track_t * dvbsubtitleTrack = NULL;
 	    Track_t * teletextTrack = NULL;
-#endif
 
 	    context->playback->readCount += packet.size;
 
@@ -500,7 +499,7 @@ static void FFMPEGThread(Context_t *context) {
                         avOut.data       = packet.data;
                         avOut.len        = packet.size;
                         avOut.pts        = pts;
-                        avOut.extradata  = &extradata;
+                        avOut.extradata  = (unsigned char *) &extradata;
                         avOut.extralen   = sizeof(extradata);
                         avOut.frameRate  = 0;
                         avOut.timeScale  = 0;
@@ -513,8 +512,7 @@ static void FFMPEGThread(Context_t *context) {
                             ffmpeg_err("(raw pcm) writing data to audio device failed\n");
                         }
                     }
-
-		    else if (audioTrack->inject_as_pcm == 1)
+                    else if (audioTrack->inject_as_pcm == 1)
 		    {
 			AVCodecContext *c = ((AVStream*)(audioTrack->stream))->codec;
 
