@@ -25,6 +25,7 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 #include <cstring>
 #include <cstdio>
