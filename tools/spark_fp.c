@@ -42,6 +42,7 @@ void usage()
 	printf("\t-t: get current FP time\n");
 	printf("\t-s <time>: set FP time (time = 0: use current time)\n");
 	printf("\t-w <time>: set FP wakeup time and power down (time = 1: no wakeup)\n");
+	printf("\t-p: set LED flashing period (in ms)\n");
 	printf("\t-l <n>: set LED <n> on\n");
 	printf("\t-L <n>: set LED <n> off\n");
 	printf("\t-i <n>: set icon <n> on\n");
@@ -125,6 +126,7 @@ int main(int argc, char **argv)
 	int ret, c, val;
 	time_t t, t2, diff;
 	struct tm *tmp;
+	int period = LOG_ON;
 
 	int fd = open(FP_DEV, O_RDWR);
 	if (fd < 0)
@@ -140,7 +142,7 @@ int main(int argc, char **argv)
 	}
 
 	ret = 0;
-	while ((c = getopt (argc, argv, "gs:tw:Tl:L:i:I:")) != -1)
+	while ((c = getopt (argc, argv, "gs:tw:Tl:L:i:I:p:")) != -1)
 	{
 		switch (c)
 		{
@@ -224,8 +226,11 @@ int main(int argc, char **argv)
 				 */
 				sleep(2); /* not reached... */
 				break;
+			case 'p':
+				period = atoi(optarg)/10;
+				break;
 			case 'l': /* LED on */
-				aotom.u.led.on = LOG_ON;
+				aotom.u.led.on = period;
 				aotom.u.led.led_nr = atoi(optarg);
 				ioctl(fd, VFDSETLED, &aotom);
 				break;
