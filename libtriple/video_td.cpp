@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <config.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
@@ -100,7 +101,7 @@ VDec::VDec(void)
 	z[0] = 100;
 	z[1] = 100;
 	zoomvalue = &z[0];
-	const char *blanknames[2] = { "/share/tuxbox/blank_576.mpg", "/share/tuxbox/blank_480.mpg" };
+	const char *blanknames[2] = { DATADIR "/blank_576.mpg", DATADIR "/blank_480.mpg" };
 	int blankfd;
 	struct stat st;
 
