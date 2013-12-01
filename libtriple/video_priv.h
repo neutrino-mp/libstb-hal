@@ -44,6 +44,7 @@ public:
 	video_play_state_t playstate;
 	vidDispMode_t croppingMode;
 	vidOutFmt_t outputformat;
+	bool pic_shown;
 	int scartvoltage;
 	int z[2]; /* zoomvalue for 4:3 (0) and 16:9 (1) in percent */
 	int *zoomvalue;

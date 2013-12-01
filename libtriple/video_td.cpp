@@ -136,6 +136,7 @@ VDec::VDec(void)
 		close(blankfd);
 	}
 	video_standby = 0;
+	pic_shown = false;
 	noscart = (getenv("TRIPLE_NOSCART") != NULL);
 	if (noscart)
 		lt_info("%s TRIPLE_NOSCART variable prevents SCART switching\n", __FUNCTION__);
@@ -341,6 +342,14 @@ int cVideo::Stop(bool blank)
 int VDec::Stop(bool blank)
 {
 	lt_debug("%s(%d)\n", __FUNCTION__, blank);
+	bool stillp = false;
+	pthread_mutex_lock(&stillp_mutex);
+	stillp = pic_shown;
+	pthread_mutex_unlock(&stillp_mutex);
+	/* do not stop the stillpic */
+	if (stillp)
+		return -1;
+
 	if (blank)
 	{
 		playstate = VIDEO_STOPPED;
@@ -369,6 +378,9 @@ int VDec::setBlank(void)
 	VIDEOINFO v;
 	BUFINFO buf;
 	pthread_mutex_lock(&stillp_mutex);
+	/* dont blank if a picture is shown */
+	if (pic_shown)
+		goto out;
 	memset(&v, 0, sizeof(v));
 	ioctl(fd, MPEG_VID_GET_V_INFO, &v);
 
@@ -519,10 +531,16 @@ void VDec::ShowPicture(const char * fname)
 			lt_info("%s short read (%m)\n", __FUNCTION__);
 		else
 		{
+			pic_shown = true;
 			BUFINFO buf;
 			buf.ulLen = st.st_size;
 			buf.ulStartAdrOff = (int)data;
-			Stop(false);
+			/* Stop() wants to locks stillp_mutex, so don't call that */
+			// Stop(false);
+			playstate = VIDEO_FREEZED;
+			fop(ioctl, MPEG_VID_FREEZE);
+			/* writing twice seems to be more reliable */
+			fop(ioctl, MPEG_VID_STILLP_WRITE, &buf);
 			fop(ioctl, MPEG_VID_STILLP_WRITE, &buf);
 		}
 		free(data);
@@ -564,7 +582,10 @@ void cVideo::StopPicture()
 void VDec::StopPicture()
 {
 	lt_debug("%s\n", __FUNCTION__);
+	pthread_mutex_lock(&stillp_mutex);
 	fop(ioctl, MPEG_VID_SELECT_SOURCE, VID_SOURCE_DEMUX);
+	pic_shown = false;
+	pthread_mutex_unlock(&stillp_mutex);
 }
 
 void cVideo::Standby(unsigned int bOn)
