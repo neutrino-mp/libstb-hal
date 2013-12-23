@@ -171,6 +171,52 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 				free(TrackList);
 			}
 		}
+		//DVBSUB
+		if(player && player->manager && player->manager->dvbsubtitle) {
+			char ** TrackList = NULL;
+			player->manager->dvbsubtitle->Command(player, MANAGER_LIST, &TrackList);
+			if (TrackList != NULL) {
+				printf("DVBSubtitleTrack List\n");
+				int i = 0;
+				for (i = 0; TrackList[i] != NULL; i+=2) {
+					printf("\t%s - %s\n", TrackList[i], TrackList[i+1]);
+					free(TrackList[i]);
+					free(TrackList[i+1]);
+				}
+				free(TrackList);
+			}
+		}
+
+		//Teletext
+		if(player && player->manager && player->manager->teletext) {
+			char ** TrackList = NULL;
+			player->manager->teletext->Command(player, MANAGER_LIST, &TrackList);
+			if (TrackList != NULL) {
+				printf("TeletextTrack List\n");
+				int i = 0;
+				for (i = 0; TrackList[i] != NULL; i+=2) {
+					printf("\t%s - %s\n", TrackList[i], TrackList[i+1]);
+					free(TrackList[i]);
+					free(TrackList[i+1]);
+				}
+				free(TrackList);
+			}
+		}
+		//Chapters
+		if(player && player->manager && player->manager->chapter) {
+			char ** TrackList = NULL;
+			player->manager->chapter->Command(player, MANAGER_LIST, &TrackList);
+			if (TrackList != NULL) {
+				printf("Chapter List\n");
+				int i = 0;
+				for (i = 0; TrackList[i] != NULL; i+=2) {
+					printf("\t%s - %s\n", TrackList[i], TrackList[i+1]);
+					free(TrackList[i]);
+					free(TrackList[i+1]);
+				}
+				free(TrackList);
+			}
+		}
 
 		if (pm != PLAYMODE_TS && player && player->output && player->playback) {
 			player->output->Command(player, OUTPUT_OPEN, NULL);
@@ -637,11 +683,29 @@ bool cPlayback::SelectSubtitles(int pid)
 	return false;
 }
 
-/* another dummy function for DVD playback(?) */
 void cPlayback::GetChapters(std::vector<int> &positions, std::vector<std::string> &titles)
 {
 	positions.clear();
 	titles.clear();
+
+	if(player && player->manager && player->manager->chapter) {
+		char ** TrackList = NULL;
+		player->manager->chapter->Command(player, MANAGER_LIST, &TrackList);
+		if (TrackList != NULL) {
+			printf("%s: Chapter List\n", __func__);
+			int i = 0;
+			for (i = 0; TrackList[i] != NULL; i+=2) {
+				printf("\t%s - %s\n", TrackList[i], TrackList[i+1]);
+				int pos = atoi(TrackList[i]);
+				std::string title(TrackList[i + 1]);
+				positions.push_back(pos);
+				titles.push_back(title);
+				free(TrackList[i]);
+				free(TrackList[i+1]);
+			}
+			free(TrackList);
+		}
+	}
 }
 
 void cPlayback::RequestAbort(void)
