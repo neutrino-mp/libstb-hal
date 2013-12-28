@@ -22,6 +22,13 @@
 #include <stdint.h>
 #include <vector>
 
+/*
+ * This is actually the max number that could be returned by
+ * FindAllPids() / FindAllSubs().
+ * not yet implemented, most archs return max. 10 PIDs.
+ */
+#define MAX_PLAYBACK_PIDS 40
+
 typedef enum {
 	PLAYMODE_TS = 0,
 	PLAYMODE_FILE,
