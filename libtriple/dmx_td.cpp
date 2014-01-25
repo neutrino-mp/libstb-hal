@@ -1,7 +1,7 @@
 /*
  * cDemux implementation for the Tripledragon dbs3000 receiver
  *
- * (C) 2010-2013 Stefan Seyfried
+ * (C) 2010-2014 Stefan Seyfried
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -655,7 +655,16 @@ bool cDemux::SetSource(int /*unit*/, int /*source*/)
 	return true;
 };
 
-int cDemux::GetSource(int /*unit*/)
+int cDemux::GetSource(int unit)
 {
+	/* hackedy hack :-) */
+	/*
+	 * GetSource is only used for pes_type == DMX_TP_CHANNEL, VIDEO_CHANNEL and AUDIO_CHANNEL
+	 * for VIDEO / AUDIO, demux is always 0 and for DMX_TP, it is 1 for record and stream.
+	 * At least I hope so :-)
+	 * (the value of GetSource is used for selecting the demux dev on which to descramble)
+	 */
+	if (unit == 1)
+		return 1;
 	return 0;
 };
