@@ -8,6 +8,8 @@ bin_PROGRAMS = libstb-hal-test
 libstb_hal_la_LIBADD = \
 	common/libcommon.la
 
+libstb_hal_la_LDFLAGS = -version-info 1:0:1
+
 libstb_hal_test_SOURCES = libtest.cpp
 libstb_hal_test_LDADD = libstb-hal.la
 
