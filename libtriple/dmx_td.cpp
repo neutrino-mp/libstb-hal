@@ -270,6 +270,14 @@ int cDemux::Read(unsigned char *buff, int len, int timeout)
 	ufds.events = POLLIN;
 	ufds.revents = 0;
 
+	if (dmx_type == DMX_INVALID)	/* happens, if too many DMX_TP are requested, because */
+	{				/* nobody checks the return value of Open or Start... */
+		lt_debug("%s #%d: DMX_INVALID\n", __func__, num);
+		usleep(timeout * 1000);	/* rate-limit the debug message */
+		errno = EINVAL;
+		return -1;
+	}
+
 	if (P->measure)
 	{
 		if (timeout)
