@@ -107,8 +107,16 @@ hw_caps_t *get_hwcaps(void)
 					tmp = "Visionnet Hammer 5400"; // or Startrack SRT 2020 HD, or Visionnet Fireball 101
 					caps.has_SCART = 1;
 					break;
+				case 0x090043:
+					tmp = "Sogno Spark Revolution";
+					caps.has_SCART = 1;
+					break;
 				case 0x0c0003:
 					tmp = "Truman Top Box 2";
+					caps.has_SCART = 1;
+					break;
+				case 0x0c0004:
+					tmp = "Delta";
 					caps.has_SCART = 1;
 					break;
 				case 0x0c0007:
@@ -131,6 +139,10 @@ hw_caps_t *get_hwcaps(void)
 					tmp = "SAB Unix Triple HD (S903)";
 					caps.has_SCART = 1;
 					break;
+				case 0x0c0015:
+					tmp = "Superbox Z500";
+					caps.has_SCART = 1;
+					break;
 				case 0x0c001d:
 					tmp = "Satcom 7162";
 					caps.has_SCART = 1;
@@ -143,8 +155,16 @@ hw_caps_t *get_hwcaps(void)
 					tmp = "Visionnet Falcon";
 					caps.has_SCART = 1;
 					break;
-				case 0x0c002b00:
+				case 0x0c002b:
 					tmp = "Icecrypt S3700 CHD";
+					caps.has_SCART = 1;
+					break;
+				case 0x0c0043:
+					tmp = "Sogno Spark Triple";
+					caps.has_SCART = 1;
+					break;
+				case 0x0c0045:
+					tmp = "Interstar";
 					caps.has_SCART = 1;
 					break;
 				default:
