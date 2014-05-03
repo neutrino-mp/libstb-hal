@@ -30,7 +30,6 @@ if test x$BOXTYPE = xgeneric; then
 		PKG_CHECK_MODULES([AVCODEC], [libavcodec >= 54.28.0])
 		# don't know which version is exactly needed here...
 		PKG_CHECK_MODULES([SWSCALE], [libswscale])
-		PKG_CHECK_MODULES([SWRESAMPLE], [libswresample])
 	else
 		# openmaxil are the broadcom userspace libs
 		# my yocto (openembedded) layer has an openmaxil package built from userland git.
@@ -46,6 +45,7 @@ if test x$BOXTYPE = xgeneric; then
 		PKG_CHECK_MODULES([AVFORMAT], [libavformat])
 		PKG_CHECK_MODULES([AVCODEC], [libavcodec])
 	fi
+	PKG_CHECK_MODULES([SWRESAMPLE], [libswresample])
 	# don't know which version is exactly needed here...
 	PKG_CHECK_MODULES([AVUTIL], [libavutil])
 fi

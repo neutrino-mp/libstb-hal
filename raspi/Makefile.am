@@ -13,6 +13,7 @@ AM_LDFLAGS = \
 	@AVFORMAT_LIBS@ \
 	@AVUTIL_LIBS@ \
 	@AVCODEC_LIBS@ \
+	@SWRESAMPLE_LIBS@ \
 	@OMX_LIBS@ \
 	-lOpenThreads
 

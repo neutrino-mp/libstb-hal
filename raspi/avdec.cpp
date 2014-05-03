@@ -33,6 +33,7 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/mathematics.h>
+#include <libswresample/swresample.h>
 //#include <ao/ao.h>
 #include "codec.h"
 #include "avcodec_omx.h"
@@ -329,6 +330,13 @@ void aDec::run()
 	AVCodecContext *c = NULL;
 	AVInputFormat *inp;
 	AVFrame *frame;
+	/* resample / sample format conversion */
+	SwrContext *swr = NULL;
+	uint8_t *obuf = NULL;
+	int obuf_sz = 0; /* in samples */
+	int obuf_sz_max = 0;
+	int o_ch = 2, o_sr = 48000; /* output channels and sample rate */
+
 	uint8_t *inbuf;
 	AVPacket avpkt;
 	char tmp[128] = "unknown";
@@ -375,6 +383,10 @@ void aDec::run()
 		lt_info("aDec: Codec for codec_id 0x%08x not found\n", c->codec_id);
 		goto out;
 	}
+	/* now using libswresample anyway
+	if (c->sample_fmt == AV_SAMPLE_FMT_S16P)
+		c->request_sample_fmt = AV_SAMPLE_FMT_S16;
+	*/
 	if (avcodec_open2(c, codec, NULL) < 0) {
 		lt_info("aDec: avcodec_open2() failed\n");
 		goto out;
@@ -387,6 +399,15 @@ void aDec::run()
 	/* output sample rate, channels, layout could be set here if necessary */
 	avcodec_string(tmp, sizeof(tmp), c, 0);
 	lt_info("aDec: decoding %s\n", tmp);
+	swr = swr_alloc_set_opts(swr,
+				AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_S16, o_sr,		/* output */
+				c->channel_layout, c->sample_fmt, c->sample_rate,	/* input */
+				0, NULL);
+	if (!swr) {
+		lt_info("could not alloc resample context\n");
+		goto out3;
+	}
+	swr_init(swr);
 	while (dec_running) {
 		int gotframe = 0;
 		if (av_read_frame(avfc, &avpkt) < 0) {
@@ -398,19 +419,36 @@ void aDec::run()
 			av_free_packet(&avpkt);
 			continue;
 		}
+
 		int len = avcodec_decode_audio4(c, frame, &gotframe, &avpkt);
 		if (gotframe && dec_running) {
-			curr_pts = (avpkt.pts);
+			int out_linesize;
+			obuf_sz = av_rescale_rnd(swr_get_delay(swr, c->sample_rate) +
+						 frame->nb_samples, o_sr, c->sample_rate, AV_ROUND_UP);
+			if (obuf_sz > obuf_sz_max) {
+				lt_info("obuf_sz: %d old: %d\n", obuf_sz, obuf_sz_max);
+				av_free(obuf);
+				if (av_samples_alloc(&obuf, &out_linesize, o_ch,
+							frame->nb_samples, AV_SAMPLE_FMT_S16, 1) < 0) {
+					lt_info("av_samples_alloc failed\n");
+					av_free_packet(&avpkt);
+					break; /* while (thread_started) */
+				}
+				obuf_sz_max = obuf_sz;
+			}
+			obuf_sz = swr_convert(swr, &obuf, obuf_sz,
+					      (const uint8_t **)frame->extended_data, frame->nb_samples);
+			curr_pts = av_frame_get_best_effort_timestamp(frame);
 			apts = curr_pts;
 			lt_debug("aDec: pts 0x%" PRIx64 " %3f\n", curr_pts, curr_pts/90000.0);
-			int data_size = av_samples_get_buffer_size(NULL, c->channels,
-					frame->nb_samples, c->sample_fmt, 1);
+			int data_size = av_samples_get_buffer_size(&out_linesize, o_ch,
+								   obuf_sz, AV_SAMPLE_FMT_S16, 1);
 			packet = (packet_t *)malloc(sizeof(*packet));
 			packet->PTS = av_rescale_q(avpkt.pts, avfc->streams[0]->time_base, omx_timebase);
 			packet->DTS = -1;
 			packet->packetlength = data_size;
 			packet->packet = (uint8_t *)malloc(data_size);
-			memcpy(packet->packet, frame->data[0], data_size);
+			memcpy(packet->packet, obuf, data_size);
 			packet->buf = packet->packet;  /* This is what is free()ed */
 			codec_queue_add_item(&codecs.acodec, packet, MSG_PACKET);
 		}
@@ -419,6 +457,8 @@ void aDec::run()
 		av_free_packet(&avpkt);
 	}
 	lt_info("aDec: decoder loop exited\n");
+	swr_free(&swr);
+ out3:
 #if LIBAVCODEC_VERSION_INT >= (54 << 16 | 28 << 8)
 	avcodec_free_frame(&frame);
 #else
