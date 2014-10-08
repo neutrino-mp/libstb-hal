@@ -16,7 +16,7 @@ libeplayer3_la_SOURCES = \
 # writer/wmv.cpp writer/ac3.cpp writer/divx.cpp
 # writer/dts.cpp writer/mpeg2.cpp writer/mp3.cpp
 # writer/h264.cpp
-# writer/h263.cpp writer/vc1.cpp writer/pcm.cpp
+# writer/h263.cpp writer/vc1.cpp writer/pcm.cpp writer/aac.cpp
 
 LIBEPLAYER3_LIBS = libeplayer3.la
 # -lpthread -lavformat -lavcodec -lavutil -lswresample -lm
