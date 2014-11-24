@@ -66,10 +66,9 @@ int64_t Input::calcPts(AVStream * stream, int64_t pts)
 		return INVALID_PTS_VALUE;
 
 	pts = av_rescale(90000ll * stream->time_base.num, pts, stream->time_base.den);
-#if 0
 	if (avfc->start_time != AV_NOPTS_VALUE)
 		pts -= av_rescale(90000ll, avfc->start_time, AV_TIME_BASE);
-#endif
+
 	if (pts < 0)
 		return INVALID_PTS_VALUE;
 
@@ -433,6 +432,7 @@ bool Input::ReadSubtitles(const char *filename) {
 
 bool Input::Init(const char *filename)
 {
+	bool find_info = true;
 	abortPlayback = false;
 	av_lockmgr_register(lock_callback);
 #if ENABLE_LOGGING
@@ -478,7 +478,14 @@ again:
 		avfc->probesize = 131072;
 	}
 
-	err = avformat_find_stream_info(avfc, NULL);
+	for (int i = 0; i < avfc->nb_streams; i++) {
+		if (avfc->streams[i]->codec->codec_id == AV_CODEC_ID_AAC)
+			find_info = false;
+	}
+	if (find_info)
+		err = avformat_find_stream_info(avfc, NULL);
+
+#if 0
 	if (averror(err, avformat_find_stream_info)) {
 		avformat_close_input(&avfc);
 		if (player->noprobe) {
@@ -487,6 +494,7 @@ again:
 		}
 		return false;
 	}
+#endif
 
 	bool res = UpdateTracks();
 
