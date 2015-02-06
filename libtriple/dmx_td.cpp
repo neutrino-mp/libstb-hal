@@ -77,6 +77,7 @@ typedef struct dmx_pdata {
 	int last_measure;
 	int last_data;
 	int devnum;
+	bool running;
 } dmx_pdata;
 #define P ((dmx_pdata *)pdata)
 
@@ -94,6 +95,7 @@ cDemux::cDemux(int n)
 	P->measure = false;
 	P->last_measure = 0;
 	P->last_data = 0;
+	P->running = false;
 }
 
 cDemux::~cDemux()
@@ -237,6 +239,7 @@ bool cDemux::Start(bool)
 			perror("DEMUX_START");
 	}
 	ioctl(fd, DEMUX_START);
+	P->running = true;
 	return true;
 }
 
@@ -254,6 +257,7 @@ bool cDemux::Stop(void)
 			perror("DEMUX_STOP");
 	}
 	ioctl(fd, DEMUX_STOP);
+	P->running = false;
 	return true;
 }
 
@@ -485,6 +489,7 @@ bool cDemux::sectionFilter(unsigned short _pid, const unsigned char * const filt
 	if (ioctl(fd, DEMUX_FILTER_SET, &s_flt) < 0)
 		return false;
 
+	P->running = true;
 	return true;
 }
 
@@ -554,6 +559,8 @@ void cDemux::SetSyncMode(AVSYNC_TYPE /*mode*/)
 void *cDemux::getBuffer()
 {
 	lt_debug("%s #%d\n", __FUNCTION__, num);
+	if (P->running)
+		return (void *)1;
 	return NULL;
 }
 
