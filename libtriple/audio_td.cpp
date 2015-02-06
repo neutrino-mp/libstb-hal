@@ -49,6 +49,7 @@ cAudio::~cAudio(void)
 	if (P->mixer_fd >= 0)
 		close(P->mixer_fd);
 	free(pdata);
+	audioDecoder = NULL;
 }
 
 int cAudio::mute(void)
