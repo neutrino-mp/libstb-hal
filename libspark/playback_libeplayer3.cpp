@@ -1,3 +1,17 @@
+/*
+ * CPlayback implementation for SH4 using libeplayer3
+ *
+ * (C) 2010-2015 Stefan Seyfried
+ *
+ * original code is from tdt git:
+ *   git://gitorious.org/open-duckbox-project-sh4/tdt.git
+ *
+ * lots of changes and huge improvements are
+ * (C) 2013,2014 'martii' <m4rtii@gmx.de>
+ *
+ * License: GPLv2 or later, as the rest of libstb-hal
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
