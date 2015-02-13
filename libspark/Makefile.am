@@ -6,7 +6,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/libeplayer3/include
 
 AM_CXXFLAGS = -fno-rtti -fno-exceptions -fno-strict-aliasing
-AM_LDFLAGS = -lpthread -lass -lrt
+AM_LDFLAGS = \
+	@AVFORMAT_LIBS@ \
+	@AVUTIL_LIBS@ \
+	@AVCODEC_LIBS@ \
+	@SWRESAMPLE_LIBS@ \
+	-lpthread -lass -lrt
 
 libspark_la_SOURCES = \
 	irmp.c \
