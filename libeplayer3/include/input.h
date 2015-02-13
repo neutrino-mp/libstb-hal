@@ -70,8 +70,10 @@ class Input
 		Input();
 		~Input();
 
+#if 0
 		bool ReadSubtitle(const char *filename, const char *format, int pid);
 		bool ReadSubtitles(const char *filename);
+#endif
 		bool Init(const char *filename);
 		bool UpdateTracks();
 		bool Play();

@@ -73,12 +73,14 @@ int64_t Input::calcPts(AVStream * stream, int64_t pts)
 	return pts;
 }
 
+#if 0
 // from neutrino-mp/lib/libdvbsubtitle/dvbsub.cpp
 extern void dvbsub_write(AVSubtitle *, int64_t);
 extern void dvbsub_ass_write(AVCodecContext *c, AVSubtitle *sub, int pid);
 extern void dvbsub_ass_clear(void);
 // from neutrino-mp/lib/lib/libtuxtxt/tuxtxt_common.h
 extern void teletext_write(int pid, uint8_t *data, int size);
+#endif
 
 static std::string lastlog_message;
 static unsigned int lastlog_repeats;
@@ -221,6 +223,7 @@ bool Input::Play()
 					logprintf("writing data to %s device failed\n", "audio");
 			}
 			audioSeen = true;
+#if 0
 		} else if (_subtitleTrack && (_subtitleTrack->stream == stream)) {
 			if (stream->codec->codec) {
 				AVSubtitle sub;
@@ -250,6 +253,7 @@ bool Input::Play()
 		} else if (_teletextTrack && (_teletextTrack->stream == stream)) {
 			if (packet.data && packet.size > 1)
 				teletext_write(_teletextTrack->pid, packet.data + 1, packet.size - 1);
+#endif
 		}
 
 		av_free_packet(&packet);
@@ -260,7 +264,9 @@ bool Input::Play()
 	else
 		player->output.Flush();
 
+#if 0
 	dvbsub_ass_clear();
+#endif
 	abortPlayback = true;
 	hasPlayThreadStarted = false;
 
@@ -297,6 +303,7 @@ static int lock_callback(void **mutex, enum AVLockOp op)
 	}
 }
 
+#if 0
 bool Input::ReadSubtitle(const char *filename, const char *format, int pid)
 {
 	const char *lastDot = strrchr(filename, '.');
@@ -369,6 +376,7 @@ bool Input::ReadSubtitles(const char *filename) {
 	ret |= ReadSubtitle(filename, "ssa", 0xFFFD);
 	return ret;
 }
+#endif
 
 bool Input::Init(const char *filename)
 {
@@ -438,9 +446,9 @@ again:
 		player->output.SwitchVideo(videoTrack->stream);
 	if (audioTrack)
 		player->output.SwitchAudio(audioTrack->stream);
-
+#if 0
 	ReadSubtitles(filename);
-
+#endif
 	return res;
 }
 
