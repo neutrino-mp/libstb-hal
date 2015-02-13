@@ -13,7 +13,7 @@
 
 #include "playback_hal.h"
 #include "dmx_hal.h"
-#include "audio_td.h"
+#include "audio_hal.h"
 #include "video_hal.h"
 #include "video_priv.h"
 #include "lt_debug.h"

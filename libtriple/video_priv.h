@@ -24,7 +24,7 @@
 #include <hardware/vid/vid_inf.h>
 #define video_format_t          vidDispSize_t
 #include <cs_types.h>
-#include "dmx_td.h"
+#include "dmx_hal.h"
 
 #define STB_HAL_VIDEO_HAS_GETSCREENIMAGE 1
 
