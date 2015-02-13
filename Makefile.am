@@ -44,14 +44,12 @@ endif
 
 pkginclude_HEADERS = \
 	include/audio_hal.h \
-	include/audio_td.h \
 	include/ca_cs.h \
 	include/ca.h \
 	include/cs_api.h \
 	include/cs_types.h \
 	include/dmx_cs.h \
 	include/dmx_hal.h \
-	include/dmx_td.h \
 	include/glfb.h \
 	include/hardware_caps.h \
 	include/init_cs.h \
@@ -61,6 +59,4 @@ pkginclude_HEADERS = \
 	include/playback_hal.h \
 	include/pwrmngr.h \
 	include/record_hal.h \
-	include/record_td.h \
-	include/video_hal.h \
-	include/video_td.h
+	include/video_hal.h
