@@ -205,9 +205,10 @@ bool Input::Play()
 		AVStream *stream = avfc->streams[packet.stream_index];
 		Track *_videoTrack = videoTrack;
 		Track *_audioTrack = audioTrack;
+#if 0
 		Track *_subtitleTrack = subtitleTrack;
 		Track *_teletextTrack = teletextTrack;
-
+#endif
 		if (_videoTrack && (_videoTrack->stream == stream)) {
 			int64_t pts = calcPts(stream, packet.pts);
 			if (audioSeen && !player->output.Write(stream, &packet, pts))
