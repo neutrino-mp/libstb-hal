@@ -1590,7 +1590,7 @@ static volatile uint8_t                     irmp_flags;
 // static volatile uint8_t                     irmp_busy_flag;
 
 #ifdef ANALYZE
-static uint8_t                              IRMP_PIN;
+//static uint8_t                              IRMP_PIN;
 #endif
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
