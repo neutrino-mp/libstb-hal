@@ -517,10 +517,10 @@ int cVideo::getBlank(void)
 		return 0;
 	while ((r = getline(&line, &n, f)) != -1)
 	{
-		if (r <= strlen("mailbox")) /* should not happen... */
+		if (r < 8) /* strlen("mailbox") + 1, should not happen... */
 			continue;
 		line[r - 1] = 0; /* remove \n */
-		if (!strcmp(&line[r - 1 - strlen("mailbox")], "mailbox"))
+		if (!strcmp(&line[r - 8], "mailbox"))
 		{
 			count =  atoi(line + 5);
 			break;
