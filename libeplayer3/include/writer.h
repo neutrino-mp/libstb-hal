@@ -1,88 +1,57 @@
-#ifndef WRITER_H_
-#define WRITER_H_
+/*
+ * writer class headers
+ *
+ * Copyright (C) 2014  martii
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+
+#ifndef __WRITER_H__
+#define __WRITER_H__
 
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/types.h>
 
-typedef enum { eNone, eAudio, eVideo, eGfx } eWriterType_t;
+extern "C" {
+#include <libavutil/avutil.h>
+#include <libavutil/time.h>
+#include <libavformat/avformat.h>
+#include <libswresample/swresample.h>
+#include <libavutil/opt.h>
+}
 
-typedef struct {
-    int fd;
-    unsigned char *data;
-    unsigned int len;
-    unsigned long long int Pts;
-    unsigned char *private_data;
-    unsigned int private_size;
-    unsigned int FrameRate;
-    unsigned int FrameScale;
-    unsigned int Width;
-    unsigned int Height;
-    unsigned char Version;
-} WriterAVCallData_t;
+#include <linux/dvb/stm_ioctls.h>
 
-typedef struct {
-    unsigned char *data;
-    unsigned int Width;
-    unsigned int Height;
-    unsigned int Stride;
-    unsigned int color;
+#define AV_CODEC_ID_INJECTPCM AV_CODEC_ID_PCM_S16LE
 
-    unsigned int x;		/* dst x ->given by ass */
-    unsigned int y;		/* dst y ->given by ass */
+class Player;
 
-    /* destination values if we use a shared framebuffer */
-    int fd;
-    unsigned int Screen_Width;
-    unsigned int Screen_Height;
-    uint32_t *destination;
-    unsigned int destStride;
-} WriterFBCallData_t;
+class Writer
+{
+	protected:
+		int fd;
+		Player *player;
+	public:
+		static void Register(Writer *w, enum AVCodecID id, video_encoding_t encoding);
+		static void Register(Writer *w, enum AVCodecID id, audio_encoding_t encoding);
+		static video_encoding_t GetVideoEncoding(enum AVCodecID id);
+		static audio_encoding_t GetAudioEncoding(enum AVCodecID id);
+		static Writer *GetWriter(enum AVCodecID id, enum AVMediaType codec_type);
 
-typedef struct WriterCaps_s {
-    char *name;
-    eWriterType_t type;
-    char *textEncoding;
-    /* fixme: revise if this is an enum! */
-    int dvbEncoding;
-} WriterCaps_t;
-
-typedef struct Writer_s {
-    int (*reset) ();
-    int (*writeData) (void *);
-    int (*writeReverseData) (void *);
-    WriterCaps_t *caps;
-} Writer_t;
-
-extern Writer_t WriterAudioIPCM;
-extern Writer_t WriterAudioPCM;
-extern Writer_t WriterAudioMP3;
-extern Writer_t WriterAudioMPEGL3;
-extern Writer_t WriterAudioAC3;
-extern Writer_t WriterAudioEAC3;
-extern Writer_t WriterAudioAAC;
-extern Writer_t WriterAudioDTS;
-extern Writer_t WriterAudioWMA;
-extern Writer_t WriterAudioFLAC;
-extern Writer_t WriterAudioVORBIS;
-
-extern Writer_t WriterVideoMPEG2;
-extern Writer_t WriterVideoMPEGH264;
-extern Writer_t WriterVideoH264;
-extern Writer_t WriterVideoWMV;
-extern Writer_t WriterVideoDIVX;
-extern Writer_t WriterVideoFOURCC;
-extern Writer_t WriterVideoMSCOMP;
-extern Writer_t WriterVideoH263;
-extern Writer_t WriterVideoFLV;
-extern Writer_t WriterVideoVC1;
-extern Writer_t WriterFramebuffer;
-extern Writer_t WriterPipe;
-extern Writer_t WriterDVBSubtitle;
-
-Writer_t *getWriter(char *encoding);
-
-Writer_t *getDefaultVideoWriter();
-Writer_t *getDefaultAudioWriter();
-Writer_t *getDefaultFramebufferWriter();
-
+		virtual void Init(int _fd, AVStream * /*stream*/, Player *_player ) { fd = _fd; player = _player; }
+		virtual bool Write(AVPacket *packet, int64_t pts);
+};
 #endif

@@ -1,5 +1,5 @@
 /*
- * output class
+ * input class
  *
  * Copyright (C) 2014  martii
  *
@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __OUTPUT_H__
-#define __OUTPUT_H__
+#ifndef __INPUT_H__
+#define __INPUT_H__
 
 #include <stdint.h>
 #include <string>
@@ -38,43 +38,54 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
-#include "writer.h"
-
 class Player;
+class Track;
 
-class Output
+class Input
 {
 	friend class Player;
+	friend class WriterPCM; // needs calcPts()
+	friend int interrupt_cb(void *arg);
 
 	private:
-		int videofd;
-		int audiofd;
-		Writer *videoWriter, *audioWriter;
-		OpenThreads::Mutex audioMutex, videoMutex;
-		AVStream *audioStream, *videoStream;
+		OpenThreads::Mutex mutex;
+
+		Track *videoTrack;
+		Track *audioTrack;
+		Track *subtitleTrack;
+		Track *teletextTrack;
+
+		int hasPlayThreadStarted;
+		int64_t seek_avts_abs;
+		int64_t seek_avts_rel;
+		bool isContainerRunning;
+		bool abortPlayback;
+
 		Player *player;
+		AVFormatContext *avfc;
+		uint64_t readCount;
+		int64_t calcPts(AVStream * stream, int64_t pts);
+
 	public:
-		Output();
-		~Output();
-		bool Open();
-		bool Close();
+		Input();
+		~Input();
+
+		bool ReadSubtitle(const char *filename, const char *format, int pid);
+		bool ReadSubtitles(const char *filename);
+		bool Init(const char *filename);
+		bool UpdateTracks();
 		bool Play();
 		bool Stop();
-		bool Pause();
-		bool Continue();
-		bool Mute(bool);
-		bool Flush();
-		bool FastForward(int speed);
-		bool SlowMotion(int speed);
-		bool AVSync(bool);
-		bool Clear();
-		bool ClearAudio();
-		bool ClearVideo();
-		bool GetPts(int64_t &pts);
-		bool GetFrameCount(int64_t &framecount);
-		bool SwitchAudio(AVStream *stream);
-		bool SwitchVideo(AVStream *stream);
-		bool Write(AVStream *stream, AVPacket *packet, int64_t Pts);
+		bool Seek(int64_t sec, bool absolute);
+		bool GetDuration(int64_t &duration);
+		bool SwitchAudio(Track *track);
+		bool SwitchSubtitle(Track *track);
+		bool SwitchTeletext(Track *track);
+		bool SwitchVideo(Track *track);
+		bool GetMetadata(std::vector<std::string> &keys, std::vector<std::string> &values);
+		bool GetReadCount(uint64_t &readcount);
+		AVFormatContext *GetAVFormatContext();
+		void ReleaseAVFormatContext();
 };
 
 #endif

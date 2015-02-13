@@ -1,86 +1,99 @@
-#ifndef MANAGER_H_
-#define MANAGER_H_
+/*
+ * manager class
+ *
+ * Copyright (C) 2014  martii
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
 
-#include <stdio.h>
+#ifndef __MANAGER_H__
+#define __MANAGER_H__
+
 #include <stdint.h>
+#include <string>
+#include <vector>
+#include <map>
 
-typedef enum {
-    MANAGER_ADD,
-    MANAGER_LIST,
-    MANAGER_GET,
-    MANAGER_GETNAME,
-    MANAGER_SET,
-    MANAGER_GETENCODING,
-    MANAGER_DEL,
-    MANAGER_GET_TRACK,
-    MANAGER_INIT_UPDATE
-} ManagerCmd_t;
+#include <OpenThreads/ScopedLock>
+#include <OpenThreads/Thread>
+#include <OpenThreads/Condition>
 
-typedef enum {
-    eTypeES,
-    eTypePES
-} eTrackTypeEplayer;
+extern "C" {
+#include <libavutil/avutil.h>
+#include <libavutil/time.h>
+#include <libavformat/avformat.h>
+#include <libswresample/swresample.h>
+#include <libavutil/opt.h>
+}
 
-typedef struct Track_s {
-    char *Name;
-    char *Encoding;
-    int Id;
+class Player;
 
-    /* new field for ffmpeg - add at the end so no problem
-     * can occur with not changed srt saa container
-     */
-    char *language;
+struct Track
+{
+	std::string title;
+	int pid;
+	AVStream *stream;
+	bool inactive;
+	bool hidden; // not part of currently selected program
+	bool is_static;
+	int ac3flags;
+	int type, mag, page; // for teletext
+	Track() : pid(-1), stream(NULL), inactive(false), hidden(false), is_static(false), ac3flags(0) {}
+};
 
-    /* length of track */
-    long long int duration;
-    unsigned int frame_rate;
-    unsigned int TimeScale;
-    int version;
-    long long int pts;
+struct Program
+{
+	int id;
+	std::string title;
+	std::vector<AVStream *> streams;
+};
 
-    /* for later use: */
-    eTrackTypeEplayer type;
-    int width;
-    int height;
+class Manager
+{
+	friend class Player;
 
-    /* stream from ffmpeg */
-    void *stream;
-    /* codec extra data (header or some other stuff) */
-    void *extraData;
-    int extraSize;
+	private:
+		Player *player;
+		OpenThreads::Mutex mutex;
+		std::map<int,Track*> videoTracks, audioTracks, subtitleTracks, teletextTracks;
+		std::map<int,Program> Programs;
+		void addTrack(std::map<int,Track*> &tracks, Track &track);
+		Track *getTrack(std::map<int,Track*> &tracks, int pid);
+		std::vector<Track> getTracks(std::map<int,Track*> &tracks);
+	public:
+		void addVideoTrack(Track &track);
+		void addAudioTrack(Track &track);
+		void addSubtitleTrack(Track &track);
+		void addTeletextTrack(Track &track);
+		void addProgram(Program &program);
 
-    uint8_t *aacbuf;
-    unsigned int aacbuflen;
-    int have_aacheader;
+		std::vector<Track> getVideoTracks();
+		std::vector<Track> getAudioTracks();
+		std::vector<Track> getSubtitleTracks();
+		std::vector<Track> getTeletextTracks();
+		std::vector<Program> getPrograms();
+		bool selectProgram(const int id);
 
-    /* If player2 or the elf do not support decoding of audio codec set this.
-     * AVCodec is than used for softdecoding and stream will be injected as PCM */
-    int inject_as_pcm;
-    int inject_raw_pcm;
+		Track *getVideoTrack(int pid);
+		Track *getAudioTrack(int pid);
+		Track *getSubtitleTrack(int pid);
+		Track *getTeletextTrack(int pid);
 
-    int pending;
-    long long int chapter_start;
-    long long int chapter_end;
-} Track_t;
+		bool initTrackUpdate();
+		void clearTracks();
 
-typedef struct Manager_s {
-    char *Name;
-    int (*Command) ( /*Context_t */ void *, ManagerCmd_t, void *);
-    char **Capabilities;
-
-} Manager_t;
-
-typedef struct ManagerHandler_s {
-    char *Name;
-    Manager_t *audio;
-    Manager_t *video;
-    Manager_t *subtitle;
-    Manager_t *dvbsubtitle;
-    Manager_t *teletext;
-    Manager_t *chapter;
-} ManagerHandler_t;
-
-void freeTrack(Track_t * track);
-void copyTrack(Track_t * to, Track_t * from);
-
+		~Manager();
+};
 #endif
