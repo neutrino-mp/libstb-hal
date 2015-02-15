@@ -4,7 +4,7 @@
  *
  * derived from libtriple/dmx_td.cpp
  *
- * (C) 2010-2013 Stefan Seyfried
+ * (C) 2010-2013,2015 Stefan Seyfried
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -337,8 +337,9 @@ int cDemux::Read(unsigned char *buff, int len, int timeout)
 
 	rc = ::read(fd, buff, len);
 	//fprintf(stderr, "fd %d ret: %d\n", fd, rc);
+	int saved_errno = errno;
 	if (rc < 0)
-		dmx_err("read: %s", strerror(errno), 0);
+		dmx_err("read: %s", strerror(saved_errno), 0);
 
 	return rc;
 }
