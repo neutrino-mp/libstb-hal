@@ -67,6 +67,8 @@
 #include <cstdio>
 #include <string>
 #include <sys/ioctl.h>
+#include <OpenThreads/Mutex>
+#include <OpenThreads/ScopedLock>
 #include "dmx_hal.h"
 #include "lt_debug.h"
 
@@ -122,6 +124,7 @@ static int dmx_tp_count = 0;
 
 typedef struct dmx_pdata {
 	int last_source;
+	OpenThreads::Mutex *mutex;
 } dmx_pdata;
 #define P ((dmx_pdata *)pdata)
 
@@ -137,12 +140,15 @@ cDemux::cDemux(int n)
 	fd = -1;
 	pdata = (void *)calloc(1, sizeof(dmx_pdata));
 	P->last_source = -1;
+	P->mutex = new OpenThreads::Mutex;
+	dmx_type = DMX_INVALID;
 }
 
 cDemux::~cDemux()
 {
 	lt_debug("%s #%d fd: %d\n", __FUNCTION__, num, fd);
 	Close();
+	(*P->mutex).lock();
 	/* in zapit.cpp, videoDemux is deleted after videoDecoder
 	 * in the video watchdog, we access videoDecoder
 	 * the thread still runs after videoDecoder has been deleted
@@ -155,6 +161,8 @@ cDemux::~cDemux()
 	 */
 	if (dmx_type == DMX_VIDEO_CHANNEL)
 		videoDecoder = NULL;
+	(*P->mutex).unlock();
+	free(P->mutex);
 	free(pdata);
 	pdata = NULL;
 }
@@ -280,6 +288,8 @@ int cDemux::Read(unsigned char *buff, int len, int timeout)
 		lt_info("%s #%d: not open!\n", __func__, num);
 		return -1;
 	}
+	/* avoid race in destructor: ~cDemux needs to wait until Read() returns */
+	OpenThreads::ScopedLock<OpenThreads::Mutex> m_lock(*P->mutex);
 	int rc;
 	int to = timeout;
 	struct pollfd ufds;
@@ -297,6 +307,12 @@ int cDemux::Read(unsigned char *buff, int len, int timeout)
 	{
  retry:
 		rc = ::poll(&ufds, 1, to);
+		if (ufds.fd != fd)
+		{
+			/* Close() will set fd to -1, this is normal. Everything else is not. */
+			lt_info("%s:1 ========== fd has changed, %d->%d ==========\n", __func__, ufds.fd, fd);
+			return -1;
+		}
 		if (!rc)
 		{
 			if (timeout == 0) /* we took the emergency exit */
@@ -333,6 +349,11 @@ int cDemux::Read(unsigned char *buff, int len, int timeout)
 			dmx_err("received %s, please report!", "POLLIN", ufds.revents);
 			return 0;
 		}
+	}
+	if (ufds.fd != fd)	/* does this ever happen? and if, is it harmful? */
+	{			/* read(-1,...) will just return EBADF anyway... */
+		lt_info("%s:2 ========== fd has changed, %d->%d ==========\n", __func__, ufds.fd, fd);
+		return -1;
 	}
 
 	rc = ::read(fd, buff, len);
