@@ -135,11 +135,11 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 			videoDecoder->vdec->Stop(false);
 			adec->Stop();
 		} else {
-#if 0
 			std::vector<std::string> keys, values;
 			int selected_program = 0;
 			if (vpid || apid) {
 				;
+#if 0
 			} else if (player->GetPrograms(keys, values) && (keys.size() > 1) && ProgramSelectionCallback) {
 				const char *key = ProgramSelectionCallback(ProgramSelectionCallbackData, keys, values);
 				if (!key) {
@@ -149,18 +149,20 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 				selected_program = atoi(key);
 			} else if (keys.size() > 0)
 				selected_program = atoi(keys[0].c_str());
+#else
+			} else {
+				player->GetPrograms(keys, values);
+				if (keys.size() > 0)
+					selected_program = atoi(keys[0].c_str());
+			}
+#endif
 
 			if (!keys.size() || !player->SelectProgram(selected_program)) {
 				if (apid)
-					SetAPid(apid);
+					player->SwitchAudio(apid);
 				if (vpid)
-					SetVPid(vpid);
+					player->SwitchVideo(vpid);
 			}
-#endif
-			if (apid)
-				player->SwitchAudio(apid);
-			if (vpid)
-				player->SwitchVideo(vpid);
 			pd->playing = true;
 			player->output.Open();
 			ret = player->Play();
