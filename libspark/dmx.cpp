@@ -358,9 +358,8 @@ int cDemux::Read(unsigned char *buff, int len, int timeout)
 
 	rc = ::read(fd, buff, len);
 	//fprintf(stderr, "fd %d ret: %d\n", fd, rc);
-	int saved_errno = errno;
 	if (rc < 0)
-		dmx_err("read: %s", strerror(saved_errno), 0);
+		dmx_err("read: %s", strerror(errno), 0);
 
 	return rc;
 }
