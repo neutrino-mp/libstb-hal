@@ -78,6 +78,7 @@ extern cVideo *videoDecoder;
 
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_DEMUX, this, args)
 #define lt_info(args...) _lt_info(TRIPLE_DEBUG_DEMUX, this, args)
+#define lt_debug_c(args...) _lt_debug(TRIPLE_DEBUG_DEMUX, NULL, args)
 #define lt_info_c(args...) _lt_info(TRIPLE_DEBUG_DEMUX, NULL, args)
 #define lt_info_z(args...) _lt_info(TRIPLE_DEBUG_DEMUX, thiz, args)
 #define lt_debug_z(args...) _lt_debug(TRIPLE_DEBUG_DEMUX, thiz, args)
@@ -597,7 +598,7 @@ bool cDemux::SetSource(int unit, int source)
 		lt_info_c("%s: unit (%d) out of range, NUM_DEMUX %d\n", __func__, unit, NUM_DEMUX);
 		return false;
 	}
-	lt_info_c("%s(%d, %d) => %d to %d\n", __func__, unit, source, dmx_source[unit], source);
+	lt_debug_c("%s(%d, %d) => %d to %d\n", __func__, unit, source, dmx_source[unit], source);
 	if (source < 0 || source >= NUM_DEMUXDEV)
 		lt_info_c("%s(%d, %d) ERROR: source %d out of range!\n", __func__, unit, source, source);
 	else
@@ -611,6 +612,6 @@ int cDemux::GetSource(int unit)
 		lt_info_c("%s: unit (%d) out of range, NUM_DEMUX %d\n", __func__, unit, NUM_DEMUX);
 		return -1;
 	}
-	lt_info_c("%s(%d) => %d\n", __func__, unit, dmx_source[unit]);
+	lt_debug_c("%s(%d) => %d\n", __func__, unit, dmx_source[unit]);
 	return dmx_source[unit];
 }
