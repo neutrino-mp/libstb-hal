@@ -118,10 +118,6 @@ static const char *devname[NUM_DEMUXDEV] = {
 /* did we already DMX_SET_SOURCE on that demux device? */
 static bool init[NUM_DEMUXDEV] = { false, false, false };
 
-/* uuuugly */
-static int dmx_tp_count = 0;
-#define MAX_TS_COUNT 1
-
 typedef struct dmx_pdata {
 	int last_source;
 	OpenThreads::Mutex *mutex;
@@ -232,15 +228,6 @@ void cDemux::Close(void)
 	ioctl(fd, DMX_STOP);
 	close(fd);
 	fd = -1;
-	if (dmx_type == DMX_TP_CHANNEL)
-	{
-		dmx_tp_count--;
-		if (dmx_tp_count < 0)
-		{
-			lt_info("%s dmx_tp_count < 0!!\n", __func__);
-			dmx_tp_count = 0;
-		}
-	}
 }
 
 bool cDemux::Start(bool)
