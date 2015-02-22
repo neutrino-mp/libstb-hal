@@ -51,6 +51,7 @@ public:
 		file_fd = -1;
 		exit_flag = RECORD_STOPPED;
 		dmx_num = num;
+		state = REC_STATUS_OK;
 	}
 	int file_fd;
 	int dmx_num;
@@ -270,6 +271,7 @@ void RecData::RecordThread()
 				{
 					lt_info("%s: read failed: %m\n", __func__);
 					exit_flag = RECORD_FAILED_READ;
+					state = REC_STATUS_OVERFLOW;
 					break;
 				}
 			}
@@ -286,6 +288,7 @@ void RecData::RecordThread()
 			overflow = true;
 			if (!(overflow_count % 10))
 				lt_info("%s: buffer full! Overflow? (%d)\n", __func__, ++overflow_count);
+			state = REC_STATUS_SLOW;
 		}
 		r = aio_error(&a);
 		if (r == EINPROGRESS)
@@ -369,8 +372,9 @@ void RecData::RecordThread()
 
 int cRecord::GetStatus()
 {
-	/* dummy for now */
-	return REC_STATUS_OK;
+	if (pd)
+		return pd->state;
+	return REC_STATUS_OK; /* should not happen */
 }
 
 void cRecord::ResetStatus()
