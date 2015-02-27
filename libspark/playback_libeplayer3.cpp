@@ -152,8 +152,21 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 #else
 			} else {
 				player->GetPrograms(keys, values);
-				if (keys.size() > 0)
+				if (keys.size() > 0) {
 					selected_program = atoi(keys[0].c_str());
+					int max_br = INT_MAX;
+					char *env = getenv("STREAM_MAXBITRATE");
+					if (env)
+						max_br = atoi(env);
+					for (unsigned i = 0; i < keys.size(); i++) {
+						lt_info("%s: stream: '%s' value: '%s'\n",
+							__func__, keys[i].c_str(), values[i].c_str());
+						int bitrate = atoi(values[i].c_str()); /* '1234 kbit/s' */
+						if (bitrate <= max_br)
+							selected_program = atoi(keys[i].c_str());
+					}
+					lt_info("%s: selected_program: '%d'\n", __func__, selected_program);
+				}
 			}
 #endif
 
