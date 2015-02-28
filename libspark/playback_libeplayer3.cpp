@@ -305,7 +305,7 @@ bool cPlayback::GetPosition(int &position, int &duration)
 
 	if (!player->isPlaying) {
 		lt_info("%s !!!!EOF!!!! < -1\n", __func__);
-		position = duration + 1000;
+		position = duration;
 		// duration = 0;
 		// this is stupid
 		return true;
