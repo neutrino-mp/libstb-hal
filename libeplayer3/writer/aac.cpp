@@ -179,7 +179,12 @@ bool WriterAAC::Write(AVPacket *packet, int64_t pts)
 
 WriterAAC::WriterAAC()
 {
-	Register(this, AV_CODEC_ID_AAC, AUDIO_ENCODING_AAC);
+	char *doit = getenv("HAL_AAC_SWDEC");
+	if (doit)
+		fprintf(stderr, "[libstb-hal/eplayer3::WriterAAC] HAL_AAC_SWDEC is set, "
+				"not registering hw decoder\n");
+	else
+		Register(this, AV_CODEC_ID_AAC, AUDIO_ENCODING_AAC);
 }
 
 static WriterAAC writer_aac __attribute__ ((init_priority (300)));
