@@ -474,6 +474,7 @@ void cVideo::StopPicture()
 {
 	lt_debug("%s\n", __func__);
 	vdec->stillpicture = false;
+	Stop(1);
 }
 
 void cVideo::Standby(unsigned int bOn)
