@@ -32,6 +32,8 @@
 #define lt_debug(args...) _lt_debug(TRIPLE_DEBUG_RECORD, this, args)
 #define lt_info(args...) _lt_info(TRIPLE_DEBUG_RECORD, this, args)
 
+#define BUFSIZE (2 << 20) /* 2MB */
+static const int bufsize = BUFSIZE;
 
 typedef enum {
 	RECORD_RUNNING,
@@ -47,6 +49,7 @@ class RecData
 public:
 	RecData(int num) {
 		dmx = NULL;
+		buf = NULL;
 		record_thread_running = false;
 		file_fd = -1;
 		exit_flag = RECORD_STOPPED;
@@ -56,6 +59,7 @@ public:
 	int file_fd;
 	int dmx_num;
 	cDemux *dmx;
+	uint8_t *buf;
 	pthread_t record_thread;
 	bool record_thread_running;
 	record_state_t exit_flag;
@@ -121,7 +125,13 @@ bool cRecord::Start(int fd, unsigned short vpid, unsigned short *apids, int nump
 	if (posix_fadvise(pd->file_fd, 0, 0, POSIX_FADV_DONTNEED))
 		perror("posix_fadvise");
 
-	i = pthread_create(&pd->record_thread, 0, execute_record_thread, pd);
+	pd->buf = (uint8_t *)malloc(bufsize);
+	if (!pd->buf) {
+		i = errno;
+		lt_info("%s: unable to allocate read buffer of %d bytes (%m)\n", __func__, bufsize);
+	}
+	else
+		i = pthread_create(&pd->record_thread, 0, execute_record_thread, pd);
 	if (i != 0)
 	{
 		pd->exit_flag = RECORD_FAILED_READ;
@@ -129,6 +139,8 @@ bool cRecord::Start(int fd, unsigned short vpid, unsigned short *apids, int nump
 		lt_info("%s: error creating thread! (%m)\n", __func__);
 		delete pd->dmx;
 		pd->dmx = NULL;
+		free(pd->buf);
+		pd->buf = NULL;
 		return false;
 	}
 	pd->record_thread_running = true;
@@ -146,6 +158,10 @@ bool cRecord::Stop(void)
 	if (pd->record_thread_running)
 		pthread_join(pd->record_thread, NULL);
 	pd->record_thread_running = false;
+
+	if (pd->buf)
+		free(pd->buf);
+	pd->buf = NULL;
 
 	/* We should probably do that from the destructor... */
 	if (!pd->dmx)
@@ -223,21 +239,10 @@ void RecData::RecordThread()
 {
 	lt_info("%s: begin\n", __func__);
 	hal_set_threadname("hal:record");
-#define BUFSIZE (2 << 20) /* 2MB */
-#define READSIZE (BUFSIZE / 16)
-	const int bufsize = BUFSIZE;
-	const int readsize = READSIZE;
+	const int readsize = bufsize / 16;
 	int buf_pos = 0;
 	int queued = 0;
-	uint8_t *buf;
 	struct aiocb a;
-
-	buf = (uint8_t *)malloc(bufsize);
-	if (!buf)
-	{
-		exit_flag = RECORD_FAILED_MEMORY;
-		lt_info("%s: unable to allocate buffer! (out of memory)\n", __func__);
-	}
 
 	int val = fcntl(file_fd, F_GETFL);
 	if (fcntl(file_fd, F_SETFL, val|O_APPEND))
@@ -350,7 +355,6 @@ void RecData::RecordThread()
 		a.aio_nbytes = queued;
 		r = aio_write(&a);
 	}
-	free(buf);
 
 #if 0
 	// TODO: do we need to notify neutrino about failing recording?
