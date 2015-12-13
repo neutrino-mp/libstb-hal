@@ -91,7 +91,7 @@ public:
 	uint32_t GetNumberSmartCardSlots(void);
 	static cCA *GetInstance(void);
 	bool SendPMT(int Unit, unsigned char *Data, int Len, CA_SLOT_TYPE SlotType = CA_SLOT_TYPE_ALL);
-	bool SendCAPMT(u64 /*Source*/, u8 /*DemuxSource*/, u8 /*DemuxMask*/, const unsigned char * /*CAPMT*/, u32 /*CAPMTLen*/, const unsigned char * /*RawPMT*/, u32 /*RawPMTLen*/) { return true; };
+	bool SendCAPMT(u64 /*Source*/, u8 /*DemuxSource*/, u8 /*DemuxMask*/, const unsigned char * /*CAPMT*/, u32 /*CAPMTLen*/, const unsigned char * /*RawPMT*/, u32 /*RawPMTLen*/, enum CA_SLOT_TYPE SlotType = CA_SLOT_TYPE_ALL) { (void)SlotType; return true; };
 	bool SendMessage(const CA_MESSAGE *Msg);
 	void SetInitMask(enum CA_INIT_MASK InitMask);
 	int GetCAIDS(CaIdVector & /*Caids*/) { return 0; };
