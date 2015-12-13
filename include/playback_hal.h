@@ -54,6 +54,7 @@ public:
 	void RequestAbort();
 	void GetTitles(std::vector<int> &playlists, std::vector<std::string> &titles, int &current);
 	void SetTitle(int title);
+	uint64_t GetReadCount(void);
 	//
 	cPlayback(int num = 0);
 	~cPlayback();

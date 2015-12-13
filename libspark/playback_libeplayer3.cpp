@@ -456,6 +456,11 @@ void cPlayback::RequestAbort(void)
 {
 }
 
+uint64_t cPlayback::GetReadCount(void)
+{
+	return pd->player->readCount;
+}
+
 //
 cPlayback::cPlayback(int /*num*/)
 {

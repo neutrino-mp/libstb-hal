@@ -767,6 +767,11 @@ void cPlayback::RequestAbort(void)
 {
 }
 
+uint64_t cPlayback::GetReadCount(void)
+{
+	return 0;
+}
+
 off_t PBPrivate::seek_to_pts(int64_t pts)
 {
 	off_t newpos = curr_pos;

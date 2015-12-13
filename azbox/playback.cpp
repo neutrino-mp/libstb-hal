@@ -550,6 +550,11 @@ void cPlayback::RequestAbort(void)
 {
 }
 
+uint64_t cPlayback::GetReadCount(void)
+{
+	return 0;
+}
+
 cPlayback::cPlayback(int /*num*/)
 {
 	lt_info("%s: constructor\n", __func__);
