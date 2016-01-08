@@ -202,9 +202,11 @@ bool Player::Continue()
 
 bool Player::Stop()
 {
+	// fprintf(stderr, "Player::Stop():%d isPlaying:%d\n", __LINE__, isPlaying);
 	bool ret = true;
 
 	if (isPlaying) {
+		abortRequested = true;
 		isPaused = false;
 		isPlaying = false;
 		isForwarding = false;
