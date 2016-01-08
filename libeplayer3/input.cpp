@@ -454,7 +454,7 @@ bool Input::Init(const char *filename)
 	subtitleTrack = NULL;
 	teletextTrack = NULL;
 
-again:
+//again:
 	avfc = avformat_alloc_context();
 	avfc->interrupt_callback.callback = interrupt_cb;
 	avfc->interrupt_callback.opaque = (void *) player;
@@ -478,6 +478,9 @@ again:
 		avfc->probesize = 131072;
 	}
 
+	/* only call avformat_find_stream_info if no AAC
+	 * stream is present to speed up playback start
+	 * TODO: do we need avformat_find_stream_info at all? */
 	for (int i = 0; i < avfc->nb_streams; i++) {
 		if (avfc->streams[i]->codec->codec_id == AV_CODEC_ID_AAC)
 			find_info = false;
@@ -486,6 +489,7 @@ again:
 		err = avformat_find_stream_info(avfc, NULL);
 
 #if 0
+	/* old code: we did retry if noprobe failed. Is this still needed? */
 	if (averror(err, avformat_find_stream_info)) {
 		avformat_close_input(&avfc);
 		if (player->noprobe) {
