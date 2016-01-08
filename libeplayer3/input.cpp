@@ -481,7 +481,7 @@ bool Input::Init(const char *filename)
 	/* only call avformat_find_stream_info if no AAC
 	 * stream is present to speed up playback start
 	 * TODO: do we need avformat_find_stream_info at all? */
-	for (int i = 0; i < avfc->nb_streams; i++) {
+	for (unsigned int i = 0; i < avfc->nb_streams; i++) {
 		if (avfc->streams[i]->codec->codec_id == AV_CODEC_ID_AAC)
 			find_info = false;
 	}
