@@ -219,7 +219,7 @@ bool Player::Stop()
 		input.Stop();
 
 	} else {
-		fprintf(stderr,"stop not possible\n");
+		//fprintf(stderr,"stop not possible\n");
 		ret = false;
 	}
 

@@ -129,7 +129,7 @@ bool Input::Play()
 
 		//IF MOVIE IS PAUSED, WAIT
 		if (player->isPaused) {
-			fprintf(stderr, "paused\n");
+			// fprintf(stderr, "paused\n");
 			usleep(100000);
 			continue;
 		}
