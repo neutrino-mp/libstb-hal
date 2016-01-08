@@ -47,12 +47,18 @@ public:
 	bool playing;
 	int speed;
 	int astream;
+	bool eof;
+	int length;
+	std::string curfile;
 	Player *player;
 	PBPrivate() {
 		enabled = false;
 		playing = false;
 		speed = 0;
 		astream = -1;
+		eof = false;
+		length = 0;
+		curfile = "";
 		player = new Player;
 	};
 	~PBPrivate() {
@@ -115,6 +121,7 @@ bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned s
 	if (*filename == '/')
 		file = "file://";
 	file += filename;
+	pd->curfile = file;
 
 	if (file.substr(0, 7) == "file://") {
 		if (file.substr(file.length() - 3) ==  ".ts") {
@@ -306,6 +313,8 @@ bool cPlayback::GetPosition(int &position, int &duration)
 	if (!player->isPlaying) {
 		lt_info("%s !!!!EOF!!!! < -1\n", __func__);
 		position = duration;
+		pd->eof = true;
+		pd->length = duration;
 		// duration = 0;
 		// this is stupid
 		return true;
@@ -338,7 +347,15 @@ bool cPlayback::GetPosition(int &position, int &duration)
 
 bool cPlayback::SetPosition(int position, bool absolute)
 {
-	lt_info("%s %d\n", __func__, position);
+	lt_info("%s %d %d\n", __func__, position, absolute);
+	if (pd->eof) {
+		Close();
+		pd->eof = false;
+		Start((char *)pd->curfile.c_str(), pd->player->GetVideoPid(), 0, pd->player->GetAudioPid(), 0, 0);
+		SetSpeed(pd->speed);
+		pd->player->Seek((int64_t)(pd->length - position) * (AV_TIME_BASE / 1000), false);
+		return true;
+	}
 	if (!pd->playing)
 	{
 		/* the calling sequence is:
