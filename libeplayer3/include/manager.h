@@ -49,8 +49,9 @@ struct Track
 	bool hidden; // not part of currently selected program
 	bool is_static;
 	int ac3flags;
+	AVBitStreamFilterContext *bsfc;
 	int type, mag, page; // for teletext
-	Track() : pid(-1), stream(NULL), inactive(false), hidden(false), is_static(false), ac3flags(0) {}
+	Track() : pid(-1), stream(NULL), inactive(false), hidden(false), is_static(false), ac3flags(0), bsfc(NULL) {}
 };
 
 struct Program

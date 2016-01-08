@@ -31,8 +31,14 @@ void Manager::addTrack(std::map<int,Track*> &tracks, Track &track)
 		Track *t = new Track;
 		*t = track;
 		tracks[track.pid] = t;
-	} else
+	} else {
+		/* this should be handled by Track() itself, instead of special casing here... */
+		if ((*it->second).bsfc) {
+			fprintf(stderr, "eplayer3:%s: closing bsf %p\n", __func__, (*it->second).bsfc);
+			av_bitstream_filter_close((*it->second).bsfc);
+		}
 		*it->second = track;
+	}
 }
 
 void Manager::addVideoTrack(Track &track)
@@ -238,8 +244,14 @@ void Manager::clearTracks()
 {
 	OpenThreads::ScopedLock<OpenThreads::Mutex> m_lock(mutex);
 
-	for (std::map<int,Track*>::iterator it = audioTracks.begin(); it != audioTracks.end(); ++it)
+	for (std::map<int,Track*>::iterator it = audioTracks.begin(); it != audioTracks.end(); ++it) {
+		/* see comment in addTrack() :-) */
+		if (it->second->bsfc) {
+			fprintf(stderr, "eplayer3:%s: closing bsf %p\n", __func__, it->second->bsfc);
+			av_bitstream_filter_close(it->second->bsfc);
+		}
 		delete it->second;
+	}
 	audioTracks.clear();
 
 	for (std::map<int, Track*>::iterator it = videoTracks.begin(); it != videoTracks.end(); ++it)

@@ -123,6 +123,8 @@ bool Input::Play()
 	//       Oddly, this seems to be necessary for network streaming only ...
 	bool audioSeen = !audioTrack || !player->isHttp;
 
+	int reinit_audio = 0;
+
 	while (player->isPlaying && !player->abortRequested) {
 
 		//IF MOVIE IS PAUSED, WAIT
@@ -220,6 +222,53 @@ bool Input::Play()
 			if (restart_audio_resampling) {
 				restart_audio_resampling = false;
 				player->output.Write(stream, NULL, 0);
+			}
+			if (_audioTrack->bsfc) {
+				/* this code is more or less copied from ffmpeg.c */
+				AVBitStreamFilterContext *bsfc = _audioTrack->bsfc;
+				av_packet_split_side_data(&packet);
+				AVPacket new_pkt = packet;
+				AVCodecContext *avcc = stream->codec;
+
+				int a = av_bitstream_filter_filter(bsfc, avcc, NULL,
+								&new_pkt.data, &new_pkt.size,
+								packet.data, packet.size,
+								packet.flags & AV_PKT_FLAG_KEY);
+				if (a == 0 && new_pkt.data != packet.data) {
+					if (reinit_audio < 2)
+						reinit_audio++;
+					uint8_t *t = (uint8_t *)av_malloc(new_pkt.size + FF_INPUT_BUFFER_PADDING_SIZE);
+					if(t) {
+						memcpy(t, new_pkt.data, new_pkt.size);
+						memset(t + new_pkt.size, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+						new_pkt.data = t;
+						new_pkt.buf = NULL;
+						a = 1;
+					} else {
+						/* TODO: what happens here? */
+						a = AVERROR(ENOMEM);
+					}
+				}
+				if (a > 0) {
+					packet.side_data = NULL;
+					packet.side_data_elems = 0;
+					av_free_packet(&packet);
+					new_pkt.buf = av_buffer_create(new_pkt.data, new_pkt.size,
+									av_buffer_default_free, NULL, 0);
+					if (! new_pkt.buf)
+						logprintf("eplayer3:input %d no memory\n", __LINE__);
+				} else if (a < 0) {
+					logprintf("eplayer3:input: failed to open bitstream filter\n");
+				}
+				packet = new_pkt;
+			}
+
+			if (reinit_audio == 1) { /* only run once on start */
+				/* we need to reprogram the AAC header in Writer::Init()
+				 * this is a cheap hack to do that */
+				logprintf("eplayer3:input: reset audio stream\n");
+				player->output.SwitchAudio(NULL);
+				player->output.SwitchAudio(stream);
 			}
 			if (!player->isBackWard) {
 				int64_t pts = calcPts(stream, packet.pts);
@@ -524,6 +573,9 @@ bool Input::UpdateTracks()
 						break;
 					case AV_CODEC_ID_AAC:
 						track.ac3flags = 5;
+						track.bsfc = av_bitstream_filter_init("aac_adtstoasc");
+						logprintf("adding AAC STREAM %d, bsfc: %p (aac_adtstoasc)\n",
+									track.pid, track.bsfc);
 						break;
 					default:
 						track.ac3flags = 0;
