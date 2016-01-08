@@ -329,7 +329,7 @@ bool cPlayback::GetPosition(int &position, int &duration)
 	player->GetDuration(length);
 
 	if(length <= 0)
-		duration = position + AV_TIME_BASE / 1000;
+		duration = position + 2 * AV_TIME_BASE / 1000;
 	else
 		duration = length * 1000 / AV_TIME_BASE;
 
