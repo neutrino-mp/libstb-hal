@@ -459,7 +459,10 @@ bool Input::Init(const char *filename)
 	avfc->interrupt_callback.callback = interrupt_cb;
 	avfc->interrupt_callback.opaque = (void *) player;
 
-	int err = avformat_open_input(&avfc, filename, NULL, 0);
+	AVDictionary *options = NULL;
+	av_dict_set(&options, "auth_type", "basic", 0);
+	int err = avformat_open_input(&avfc, filename, NULL, &options);
+	av_dict_free(&options);
 	if (averror(err, avformat_open_input)) {
 		avformat_free_context(avfc);
 		return false;
