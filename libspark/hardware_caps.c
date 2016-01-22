@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <aotom_main.h>
+#include <sys/utsname.h>
 
 #include <hardware_caps.h>
 
@@ -24,6 +25,7 @@ static hw_caps_t caps;
 
 hw_caps_t *get_hwcaps(void)
 {
+	struct utsname u;
 	if (initialized)
 		return &caps;
 
@@ -55,12 +57,18 @@ hw_caps_t *get_hwcaps(void)
 		len = read(fd, buf, sizeof(buf) - 1);
 		close(fd);
 	}
+	ret = uname(&u);
+	if (ret == 0)
+		snprintf(caps.boxarch, sizeof(caps.boxarch), "%s", u.machine); /* even if cmdline failed */
 	if (len > 0) {
 		buf[len] = 0;
 		char *p = strstr(buf, "STB_ID=");
 		int h0, h1, h2;
 		if (p && sscanf(p, "STB_ID=%x:%x:%x:", &h0, &h1, &h2) == 3) {
 			int sys_id = (h0 << 16) | (h1 << 8) | h2;
+			/* include processor architecture and boxid bytes in boxarch */
+			p[15] = '\0';
+			snprintf(caps.boxarch, sizeof(caps.boxarch), "%s %s", u.machine, p);
 			switch (sys_id) {
 				case 0x090003:
 					tmp = "Truman Premier 1+";

@@ -2,7 +2,7 @@
  * determine the capabilities of the hardware.
  * part of libstb-hal
  *
- * (C) 2010-2012 Stefan Seyfried
+ * (C) 2010-2012,2016 Stefan Seyfried
  *
  * License: GPL v2 or later
  */
@@ -21,7 +21,8 @@ static hw_caps_t caps = {
 	.display_xres = 128,
 	.display_yres = 64,
 	.boxvendor = "Armas",
-	.boxname = "TripleDragon"
+	.boxname = "TripleDragon",
+	.boxarch = "ppc405"
 };
 
 hw_caps_t *get_hwcaps(void)

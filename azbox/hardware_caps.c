@@ -2,7 +2,7 @@
  * determine the capabilities of the hardware.
  * part of libstb-hal
  *
- * (C) 2010-2012 Stefan Seyfried
+ * (C) 2010-2012,2016 Stefan Seyfried
  *
  * License: GPL v2 or later
  */
@@ -45,6 +45,7 @@ hw_caps_t *get_hwcaps(void)
 	}
 	else
 		strcpy(caps.boxname, "(unknown model)");
+	strcpy(caps.boxarch, "mipsel");
 
 	return &caps;
 }
