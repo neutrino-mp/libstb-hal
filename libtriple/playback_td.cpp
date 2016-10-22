@@ -241,6 +241,12 @@ bool cPlayback::Start(char *filename, unsigned short vp, int vtype, unsigned sho
 	return pd->Start(filename, vp, vtype, ap, ac3, &audioDemux->fd);
 }
 
+/* not implemented */
+bool cPlayback::Start(std::string /*filename*/, std::string /*headers*/)
+{
+	return false;
+}
+
 bool PBPrivate::Start(char *filename, unsigned short vp, int vtype, unsigned short ap, int _ac3, int *audiofd)
 {
 	struct stat s;
@@ -740,7 +746,7 @@ void cPlayback::FindAllSubs(uint16_t *, unsigned short *, uint16_t *num, std::st
 	*num = 0;
 }
 
-bool cPlayback::SelectSubtitles(int)
+bool cPlayback::SelectSubtitles(int, std::string)
 {
 	return false;
 }

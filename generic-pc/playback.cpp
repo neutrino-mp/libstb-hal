@@ -13,6 +13,11 @@ void cPlayback::Close(void)
 {
 }
 
+bool cPlayback::Start(std::string /*filename*/, std::string /*headers*/)
+{
+	return false;
+}
+
 bool cPlayback::Start(char * filename, unsigned short vpid, int vtype, unsigned short apid, int ac3, unsigned int duration)
 {
 	printf("%s:%s - filename=%s vpid=%u vtype=%d apid=%u ac3=%d duration=%i\n",
@@ -26,7 +31,7 @@ bool cPlayback::SetAPid(unsigned short pid, int /*ac3*/)
 	return true;
 }
 
-bool cPlayback::SelectSubtitles(int pid)
+bool cPlayback::SelectSubtitles(int pid, std::string /*charset*/)
 {
 	printf("%s:%s pid %i\n", FILENAME, __func__, pid);
 	return true;

@@ -41,6 +41,7 @@ public:
 	bool Open(playmode_t PlayMode);
 	void Close(void);
 	bool Start(char *filename, unsigned short vpid, int vtype, unsigned short apid, int ac3, unsigned int duration);
+	bool Start(std::string filename, std::string headers = "");
 	bool Stop(void);
 	bool SetAPid(unsigned short pid, int audio_flag);
 	bool SetSpeed(int speed);
@@ -49,7 +50,7 @@ public:
 	bool SetPosition(int position, bool absolute = false);
 	void FindAllPids(uint16_t *pids, unsigned short *aud_flags, uint16_t *num, std::string *language);
 	void FindAllSubs(uint16_t *pids, unsigned short *supported, uint16_t *num, std::string *language);
-	bool SelectSubtitles(int pid);
+	bool SelectSubtitles(int pid, std::string charset = "");
 	void GetChapters(std::vector<int> &positions, std::vector<std::string> &titles);
 	void RequestAbort();
 	void GetTitles(std::vector<int> &playlists, std::vector<std::string> &titles, int &current);

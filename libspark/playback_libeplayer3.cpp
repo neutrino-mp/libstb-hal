@@ -105,6 +105,12 @@ void cPlayback::Close(void)
 	}
 }
 
+/* TODO: implement cookie stuff */
+bool cPlayback::Start(std::string filename, std::string /*headers*/)
+{
+	return Start((char *)filename.c_str(), 0, 0, 0, 0, 0);
+}
+
 bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned short apid, int ac3, unsigned int)
 {
 	bool ret = false;
@@ -444,7 +450,7 @@ void cPlayback::FindAllSubs(uint16_t * /*pids*/, unsigned short * /*supp*/, uint
 	*num = 0;
 }
 
-bool cPlayback::SelectSubtitles(int pid)
+bool cPlayback::SelectSubtitles(int pid, std::string /*charset*/)
 {
 	lt_info("%s pid %d\n", __func__, pid);
 	return false;

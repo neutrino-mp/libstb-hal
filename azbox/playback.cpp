@@ -300,6 +300,11 @@ bool cPlayback::Open(playmode_t PlayMode)
 	return 0;
 }
 
+bool cPlayback::Start(std::string /*filename*/, std::string /*headers*/)
+{
+	return false;
+}
+
 //Used by Fileplay
 bool cPlayback::Start(char *filename, unsigned short vpid, int vtype, unsigned short _apid,
 		      int ac3, unsigned int duration)
@@ -366,7 +371,7 @@ bool cPlayback::SetAPid(unsigned short pid, int /*ac3*/)
 	return true;
 }
 
-bool cPlayback::SelectSubtitles(int pid)
+bool cPlayback::SelectSubtitles(int pid, std::string /*charset*/)
 {
 	lt_info("%s: pid %i\n", __func__, pid);
 	if (pid != pd->subpid)
