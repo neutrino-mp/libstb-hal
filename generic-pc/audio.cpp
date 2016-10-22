@@ -387,9 +387,9 @@ void ADec::run()
 		lt_info("%s: avcodec_open2() failed\n", __func__);
 		goto out;
 	}
-	frame = avcodec_alloc_frame();
+	frame = av_frame_alloc();
 	if (!frame) {
-		lt_info("%s: avcodec_alloc_frame failed\n", __func__);
+		lt_info("%s: av_frame_alloc failed\n", __func__);
 		goto out2;
 	}
 	/* output sample rate, channels, layout could be set here if necessary */
@@ -466,7 +466,7 @@ void ADec::run()
 	av_free(obuf);
 	swr_free(&swr);
  out3:
-	avcodec_free_frame(&frame);
+	av_frame_free(&frame);
  out2:
 	avcodec_close(c);
 	c = NULL;
