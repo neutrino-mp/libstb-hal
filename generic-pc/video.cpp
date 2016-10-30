@@ -99,6 +99,7 @@ VDec::VDec()
 	display_aspect = DISPLAY_AR_16_9;
 	display_crop = DISPLAY_AR_MODE_LETTERBOX;
 	v_format = VIDEO_FORMAT_MPEG2;
+	stillpicture = false;
 }
 
 VDec::~VDec(void)
@@ -271,6 +272,12 @@ void VDec::ShowPicture(const char *fname)
 	lt_info("%s(%s)\n", __func__, fname);
 	if (access(fname, R_OK))
 		return;
+	still_m.lock();
+	stillpicture = true;
+	buf_num = 0;
+	buf_in = 0;
+	buf_out = 0;
+	still_m.unlock();
 
 	unsigned int i;
 	int stream_id = -1;
@@ -370,6 +377,10 @@ void VDec::ShowPicture(const char *fname)
 
 void cVideo::StopPicture()
 {
+	lt_info("%s\n", __func__);
+	vdec->still_m.lock();
+	vdec->stillpicture = false;
+	vdec->still_m.unlock();
 }
 
 void cVideo::Standby(unsigned int)
@@ -550,7 +561,8 @@ void VDec::run(void)
 		}
 		if (avpkt.size > len)
 			lt_info("%s: WARN: pkt->size %d != len %d\n", __func__, avpkt.size, len);
-		if (got_frame) {
+		still_m.lock();
+		if (got_frame && ! stillpicture) {
 			unsigned int need = avpicture_get_size(VDEC_PIXFMT, c->width, c->height);
 			convert = sws_getCachedContext(convert,
 						       c->width, c->height, c->pix_fmt,
@@ -600,7 +612,9 @@ void VDec::run(void)
 			lt_debug("%s: time_base: %d/%d, ticks: %d rate: %d pts 0x%" PRIx64 "\n", __func__,
 					c->time_base.num, c->time_base.den, c->ticks_per_frame, dec_r,
 					av_frame_get_best_effort_timestamp(frame));
-		}
+		} else
+			lt_info("%s: got_frame: %d stillpicture: %d\n", __func__, got_frame, stillpicture);
+		still_m.unlock();
 		av_free_packet(&avpkt);
 	}
 	sws_freeContext(convert);
@@ -614,9 +628,13 @@ void VDec::run(void)
 	av_free(pIOCtx);
 	/* reset output buffers */
 	bufpos = 0;
-	buf_num = 0;
-	buf_in = 0;
-	buf_out = 0;
+	still_m.lock();
+	if (!stillpicture) {
+		buf_num = 0;
+		buf_in = 0;
+		buf_out = 0;
+	}
+	still_m.unlock();
 	lt_info("======================== end decoder thread ================================\n");
 }
 

@@ -30,6 +30,7 @@ class VDec : public OpenThreads::Thread
 {
 	friend class GLFbPC;
 	friend class cDemux;
+	friend class cVideo;
 	private:
 		/* called from GL thread */
 		class SWFramebuffer : public std::vector<unsigned char>
@@ -100,5 +101,7 @@ class VDec : public OpenThreads::Thread
 		int pig_y;
 		int pig_w;
 		int pig_h;
+		OpenThreads::Mutex still_m;
+		bool stillpicture;
 };
 #endif
