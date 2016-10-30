@@ -23,6 +23,7 @@
  * TODO: buffer handling surely needs some locking...
  */
 
+#include "config.h"
 #include <unistd.h>
 #include <cstring>
 #include <cstdio>
@@ -37,6 +38,13 @@ extern "C" {
 #define INBUF_SIZE 0x8000
 /* my own buf 256k */
 #define DMX_BUF_SZ 0x20000
+
+#if USE_OPENGL
+#define VDEC_PIXFMT AV_PIX_FMT_RGB32
+#endif
+#if USE_CLUTTER
+#define VDEC_PIXFMT AV_PIX_FMT_BGR24
+#endif
 
 #include "video_hal.h"
 #include "dmx_hal.h"
@@ -317,9 +325,9 @@ void VDec::ShowPicture(const char *fname)
 	if (avpkt.size > len)
 		lt_info("%s: WARN: pkt->size %d != len %d\n", __func__, avpkt.size, len);
 	if (got_frame) {
-		unsigned int need = avpicture_get_size(AV_PIX_FMT_RGB32, c->width, c->height);
+		unsigned int need = avpicture_get_size(VDEC_PIXFMT, c->width, c->height);
 		struct SwsContext *convert = sws_getContext(c->width, c->height, c->pix_fmt,
-							    c->width, c->height, AV_PIX_FMT_RGB32,
+							    c->width, c->height, VDEC_PIXFMT,
 							    SWS_BICUBIC, 0, 0, 0);
 		if (!convert)
 			lt_info("%s: ERROR setting up SWS context\n", __func__);
@@ -328,7 +336,7 @@ void VDec::ShowPicture(const char *fname)
 			SWFramebuffer *f = &buffers[buf_in];
 			if (f->size() < need)
 				f->resize(need);
-			avpicture_fill((AVPicture *)rgbframe, &(*f)[0], AV_PIX_FMT_RGB32,
+			avpicture_fill((AVPicture *)rgbframe, &(*f)[0], VDEC_PIXFMT,
 					c->width, c->height);
 			sws_scale(convert, frame->data, frame->linesize, 0, c->height,
 					rgbframe->data, rgbframe->linesize);
@@ -543,10 +551,10 @@ void VDec::run(void)
 		if (avpkt.size > len)
 			lt_info("%s: WARN: pkt->size %d != len %d\n", __func__, avpkt.size, len);
 		if (got_frame) {
-			unsigned int need = avpicture_get_size(AV_PIX_FMT_RGB32, c->width, c->height);
+			unsigned int need = avpicture_get_size(VDEC_PIXFMT, c->width, c->height);
 			convert = sws_getCachedContext(convert,
 						       c->width, c->height, c->pix_fmt,
-						       c->width, c->height, AV_PIX_FMT_RGB32,
+						       c->width, c->height, VDEC_PIXFMT,
 						       SWS_BICUBIC, 0, 0, 0);
 			if (!convert)
 				lt_info("%s: ERROR setting up SWS context\n", __func__);
@@ -555,7 +563,7 @@ void VDec::run(void)
 				SWFramebuffer *f = &buffers[buf_in];
 				if (f->size() < need)
 					f->resize(need);
-				avpicture_fill((AVPicture *)rgbframe, &(*f)[0], AV_PIX_FMT_RGB32,
+				avpicture_fill((AVPicture *)rgbframe, &(*f)[0], VDEC_PIXFMT,
 						c->width, c->height);
 				sws_scale(convert, frame->data, frame->linesize, 0, c->height,
 						rgbframe->data, rgbframe->linesize);

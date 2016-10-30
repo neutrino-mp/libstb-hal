@@ -1,6 +1,6 @@
 /*
 	Copyright 2010 Carsten Juttner <carjay@gmx.net>
-	Copyright 2012,2013 Stefan Seyfried <seife@tuxboxcvs.slipkontur.de>
+	Copyright 2012,2013,2016 Stefan Seyfried <seife@tuxboxcvs.slipkontur.de>
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -25,10 +25,15 @@
 #include <OpenThreads/Mutex>
 #include <vector>
 #include <map>
+#if USE_OPENGL
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 #include <GL/gl.h>
 #include <linux/fb.h> /* for screeninfo etc. */
+#endif
+#if USE_CLUTTER
+#include <clutter/clutter.h>
+#endif
 #include "glfb.h"
 extern "C" {
 #include <libavutil/rational.h>
@@ -71,36 +76,48 @@ private:
 
 	std::vector<unsigned char> *osd_buf; /* silly bounce buffer */
 
+#if USE_OPENGL
 	std::map<unsigned char, int> mKeyMap;
 	std::map<int, int> mSpecialMap;
+#endif
+#if USE_CLUTTER
+	std::map<int, int> mKeyMap;
+#endif
 	int input_fd;
 	int64_t last_apts;
 	void run();
 
 	static void rendercb();		/* callback for GLUT */
 	void render();			/* actual render function */
+#if USE_OPENGL
 	static void keyboardcb(unsigned char key, int x, int y);
 	static void specialcb(int key, int x, int y);
 	static void resizecb(int w, int h);
 	void checkReinit(int w, int h);	/* e.g. in case window was resized */
+	void setupGLObjects();		/* PBOs, textures and stuff */
+	void releaseGLObjects();
+	void drawSquare(float size, float x_factor = 1);	/* do not be square */
+#endif
+#if USE_CLUTTER
+	static bool keyboardcb(ClutterActor *actor, ClutterEvent *event, gpointer user_data);
+#endif
 
 	void initKeys();		/* setup key bindings for window */
 #if 0
 	void setupCtx();		/* create the window and make the context current */
 	void setupOSDBuffer();		/* create the OSD buffer */
 #endif
-	void setupGLObjects();		/* PBOs, textures and stuff */
-	void releaseGLObjects();
-	void drawSquare(float size, float x_factor = 1);	/* do not be square */
 
 	struct {
 		int width;		/* width and height, fixed for a framebuffer instance */
 		int height;
+		bool blit;
+#if USE_OPENGL
 		GLuint osdtex;		/* holds the OSD texture */
 		GLuint pbo;		/* PBO we use for transfer to texture */
 		GLuint displaytex;	/* holds the display texture */
 		GLuint displaypbo;
-		bool blit;
+#endif
 	} mState;
 
 	void bltOSDBuffer();
