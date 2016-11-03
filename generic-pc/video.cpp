@@ -113,7 +113,7 @@ cVideo::~cVideo(void)
 	/* ouch :-( */
 //	videoDecoder = NULL;
 	delete vdec;
-//	vdec = NULL;
+	::vdec = NULL;
 }
 
 
