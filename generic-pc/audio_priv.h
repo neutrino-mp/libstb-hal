@@ -49,5 +49,6 @@ private:
 	uint8_t *dmxbuf;
 	int bufpos;
 	AVCodecContext *c;
+	AVCodecParameters *p;
 };
 

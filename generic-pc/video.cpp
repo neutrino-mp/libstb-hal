@@ -31,6 +31,7 @@
 
 extern "C" {
 #include <libavformat/avformat.h>
+#include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
 }
 
@@ -285,6 +286,7 @@ void VDec::ShowPicture(const char *fname)
 	int len;
 	AVFormatContext *avfc = NULL;
 	AVCodecContext *c = NULL;
+	AVCodecParameters *p = NULL;
 	AVCodec *codec;
 	AVFrame *frame, *rgbframe;
 	AVPacket avpkt;
@@ -299,17 +301,18 @@ void VDec::ShowPicture(const char *fname)
 		goto out_close;
 	}
 	for (i = 0; i < avfc->nb_streams; i++) {
-		if (avfc->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+		if (avfc->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
 			stream_id = i;
 			break;
 		}
 	}
 	if (stream_id < 0)
 		goto out_close;
-	c = avfc->streams[stream_id]->codec;
-	codec = avcodec_find_decoder(c->codec_id);
-	if (!avcodec_open2(c, codec, NULL) < 0) {
-		lt_info("%s: Could not find/open the codec, id 0x%x\n", __func__, c->codec_id);
+	p = avfc->streams[stream_id]->codecpar;
+	codec = avcodec_find_decoder(p->codec_id);
+	c = avcodec_alloc_context3(codec);
+	if (avcodec_open2(c, codec, NULL) < 0) {
+		lt_info("%s: Could not find/open the codec, id 0x%x\n", __func__, p->codec_id);
 		goto out_close;
 	}
 	frame = av_frame_alloc();
@@ -326,13 +329,13 @@ void VDec::ShowPicture(const char *fname)
 	len = avcodec_decode_video2(c, frame, &got_frame, &avpkt);
 	if (len < 0) {
 		lt_info("%s: avcodec_decode_video2 %d\n", __func__, len);
-		av_free_packet(&avpkt);
+		av_packet_unref(&avpkt);
 		goto out_free;
 	}
 	if (avpkt.size > len)
 		lt_info("%s: WARN: pkt->size %d != len %d\n", __func__, avpkt.size, len);
 	if (got_frame) {
-		unsigned int need = avpicture_get_size(VDEC_PIXFMT, c->width, c->height);
+		unsigned int need = av_image_get_buffer_size(VDEC_PIXFMT, c->width, c->height, 1);
 		struct SwsContext *convert = sws_getContext(c->width, c->height, c->pix_fmt,
 							    c->width, c->height, VDEC_PIXFMT,
 							    SWS_BICUBIC, 0, 0, 0);
@@ -343,8 +346,8 @@ void VDec::ShowPicture(const char *fname)
 			SWFramebuffer *f = &buffers[buf_in];
 			if (f->size() < need)
 				f->resize(need);
-			avpicture_fill((AVPicture *)rgbframe, &(*f)[0], VDEC_PIXFMT,
-					c->width, c->height);
+			av_image_fill_arrays(rgbframe->data, rgbframe->linesize, &(*f)[0], VDEC_PIXFMT,
+					c->width, c->height, 1);
 			sws_scale(convert, frame->data, frame->linesize, 0, c->height,
 					rgbframe->data, rgbframe->linesize);
 			sws_freeContext(convert);
@@ -365,9 +368,10 @@ void VDec::ShowPicture(const char *fname)
 			buf_m.unlock();
 		}
 	}
-	av_free_packet(&avpkt);
+	av_packet_unref(&avpkt);
  out_free:
 	avcodec_close(c);
+	av_free(c);
 	av_frame_free(&frame);
 	av_frame_free(&rgbframe);
  out_close:
@@ -475,6 +479,7 @@ void VDec::run(void)
 {
 	lt_info("====================== start decoder thread ================================\n");
 	AVCodec *codec;
+	AVCodecParameters *p = NULL;
 	AVCodecContext *c= NULL;
 	AVFormatContext *avfc = NULL;
 	AVInputFormat *inp;
@@ -515,20 +520,21 @@ void VDec::run(void)
 		lt_info("%s: nb_streams %d, should be 1 => retry\n", __func__, avfc->nb_streams);
 		if (av_read_frame(avfc, &avpkt) < 0)
 			lt_info("%s: av_read_frame < 0\n", __func__);
-		av_free_packet(&avpkt);
+		av_packet_unref(&avpkt);
 		if (! thread_running)
 			goto out;
 	}
 
-	if (avfc->streams[0]->codec->codec_type != AVMEDIA_TYPE_VIDEO)
-		lt_info("%s: no video codec? 0x%x\n", __func__, avfc->streams[0]->codec->codec_type);
+	p = avfc->streams[0]->codecpar;
+	if (p->codec_type != AVMEDIA_TYPE_VIDEO)
+		lt_info("%s: no video codec? 0x%x\n", __func__, p->codec_type);
 
-	c = avfc->streams[0]->codec;
-	codec = avcodec_find_decoder(c->codec_id);
+	codec = avcodec_find_decoder(p->codec_id);
 	if (!codec) {
-		lt_info("%s: Codec for %s not found\n", __func__, avcodec_get_name(c->codec_id));
+		lt_info("%s: Codec for %s not found\n", __func__, avcodec_get_name(p->codec_id));
 		goto out;
 	}
+	c = avcodec_alloc_context3(codec);
 	if (avcodec_open2(c, codec, NULL) < 0) {
 		lt_info("%s: Could not open codec\n", __func__);
 		goto out;
@@ -556,14 +562,14 @@ void VDec::run(void)
 				lt_info("%s: avcodec_decode_video2 %d\n", __func__, len);
 				warn_d = time(NULL);
 			}
-			av_free_packet(&avpkt);
+			av_packet_unref(&avpkt);
 			continue;
 		}
 		if (avpkt.size > len)
 			lt_info("%s: WARN: pkt->size %d != len %d\n", __func__, avpkt.size, len);
 		still_m.lock();
 		if (got_frame && ! stillpicture) {
-			unsigned int need = avpicture_get_size(VDEC_PIXFMT, c->width, c->height);
+			unsigned int need = av_image_get_buffer_size(VDEC_PIXFMT, c->width, c->height, 1);
 			convert = sws_getCachedContext(convert,
 						       c->width, c->height, c->pix_fmt,
 						       c->width, c->height, VDEC_PIXFMT,
@@ -575,8 +581,8 @@ void VDec::run(void)
 				SWFramebuffer *f = &buffers[buf_in];
 				if (f->size() < need)
 					f->resize(need);
-				avpicture_fill((AVPicture *)rgbframe, &(*f)[0], VDEC_PIXFMT,
-						c->width, c->height);
+				av_image_fill_arrays(rgbframe->data, rgbframe->linesize, &(*f)[0], VDEC_PIXFMT,
+						c->width, c->height, 1);
 				sws_scale(convert, frame->data, frame->linesize, 0, c->height,
 						rgbframe->data, rgbframe->linesize);
 				if (dec_w != c->width || dec_h != c->height) {
@@ -615,11 +621,12 @@ void VDec::run(void)
 		} else
 			lt_info("%s: got_frame: %d stillpicture: %d\n", __func__, got_frame, stillpicture);
 		still_m.unlock();
-		av_free_packet(&avpkt);
+		av_packet_unref(&avpkt);
 	}
 	sws_freeContext(convert);
  out2:
 	avcodec_close(c);
+	av_free(c);
 	av_frame_free(&frame);
 	av_frame_free(&rgbframe);
  out:
@@ -654,8 +661,8 @@ static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int 
 		lt_info_c("%s: could not alloc sframe (%p) or dframe (%p)\n", __func__, sframe, dframe);
 		goto out;
 	}
-	avpicture_fill((AVPicture *)sframe, &(src[0]), AV_PIX_FMT_RGB32, sw, sh);
-	avpicture_fill((AVPicture *)dframe, &(dst[0]), AV_PIX_FMT_RGB32, dw, dh);
+	av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], AV_PIX_FMT_RGB32, sw, sh, 1);
+	av_image_fill_arrays(dframe->data, dframe->linesize, &(dst)[0], AV_PIX_FMT_RGB32, sw, sh, 1);
 	sws_scale(scale, sframe->data, sframe->linesize, 0, sh, dframe->data, dframe->linesize);
  out:
 	av_frame_free(&sframe);
@@ -693,7 +700,7 @@ bool VDec::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_
 	}
 	if (get_osd)
 		osd = glfb_priv->getOSDBuffer();
-	unsigned int need = avpicture_get_size(AV_PIX_FMT_RGB32, xres, yres);
+	unsigned int need = av_image_get_buffer_size(AV_PIX_FMT_RGB32, xres, yres, 1);
 	data = (unsigned char *)realloc(data, need); /* will be freed by caller */
 	if (data == NULL)	/* out of memory? */
 		return false;
