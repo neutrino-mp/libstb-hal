@@ -6,11 +6,11 @@ AC_GNU_SOURCE
 
 TUXBOX_APPS
 TUXBOX_APPS_DIRECTORY
-TUXBOX_APPS_PKGCONFIG
 TUXBOX_BOXTYPE
 
 AC_PROG_CC
 AC_PROG_CXX
+PKG_PROG_PKG_CONFIG
 ## both disabled => libtool still defaults to static
 ##                  at least the libtool I tested with ;-)
 ## --enable-shared => build only shared
@@ -33,7 +33,7 @@ else
 fi
 
 if test x"$BOXTYPE" = x"tripledragon"; then
-	TUXBOX_APPS_LIB_PKGCONFIG(DIRECTFB, directfb)
+	PKG_CHECK_MODULES([DIRECTFB], [directfb])
 fi
 
 if test x$BOXTYPE = xgeneric; then
