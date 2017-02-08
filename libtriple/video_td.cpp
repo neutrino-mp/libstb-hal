@@ -1206,6 +1206,8 @@ bool cVideo::GetScreenImage(unsigned char * &video, int &xres, int &yres, bool g
 			/* red */
 			*q = ((*q * a2 ) + (r * a)) >> 8;
 			q++;
+			if (! get_video)
+				*q = 0xff;
 			q++; /* skip alpha byte */
 		}
 		munmap(map, GFXFB_SIZE);
