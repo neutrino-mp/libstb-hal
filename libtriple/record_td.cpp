@@ -113,6 +113,7 @@ bool cRecord::Start(int fd, unsigned short vpid, unsigned short *apids, int nump
 		pd->dmx->addPid(apids[i]);
 
 	pd->file_fd = fd;
+	fcntl(fd, F_SETFD, fcntl(fd, F_GETFD)|FD_CLOEXEC);
 	pd->exit_flag = RECORD_RUNNING;
 	if (posix_fadvise(pd->file_fd, 0, 0, POSIX_FADV_DONTNEED))
 		perror("posix_fadvise");

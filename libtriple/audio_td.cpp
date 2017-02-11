@@ -274,6 +274,7 @@ int cAudio::PrepareClipPlay(int ch, int srate, int bits, int little_endian)
 		/* not a real error */
 		return 0;
 	}
+	fcntl(P->mixer_fd, F_SETFD, FD_CLOEXEC);
 	if (ioctl(P->mixer_fd, SOUND_MIXER_READ_DEVMASK, &devmask) == -1) {
 		lt_info("%s: SOUND_MIXER_READ_DEVMASK %m\n", __func__);
 		devmask = 0;
