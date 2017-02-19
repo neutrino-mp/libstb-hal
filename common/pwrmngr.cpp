@@ -73,7 +73,7 @@ unsigned long cCpuFreqManager::GetCpuFreq(void)
 
 bool cCpuFreqManager::SetCpuFreq(unsigned long f)
 {
-	lt_debug("%s(%lu) => set standby = %s\n", __func__, f, f?"true":"false");
+	lt_info("%s(%lu) => set standby = %s\n", __func__, f, f?"true":"false");
 #if HAVE_TRIPLEDRAGON
 	/* actually SetCpuFreq is used to determine if the system is in standby
 	   this is an "elegant" hack, because:
