@@ -101,6 +101,7 @@ class VDec : public OpenThreads::Thread
 		int pig_y;
 		int pig_w;
 		int pig_h;
+		bool pig_changed;
 		OpenThreads::Mutex still_m;
 		bool stillpicture;
 };

@@ -97,6 +97,7 @@ VDec::VDec()
 	buf_in = 0;
 	buf_out = 0;
 	pig_x = pig_y = pig_w = pig_h = 0;
+	pig_changed = false;
 	display_aspect = DISPLAY_AR_16_9;
 	display_crop = DISPLAY_AR_MODE_LETTERBOX;
 	v_format = VIDEO_FORMAT_MPEG2;
@@ -407,6 +408,7 @@ void VDec::Pig(int x, int y, int w, int h)
 	pig_y = y;
 	pig_w = w;
 	pig_h = h;
+	pig_changed = true;
 }
 
 void cVideo::getPictureInfo(int &width, int &height, int &rate)

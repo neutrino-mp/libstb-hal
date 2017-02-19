@@ -261,6 +261,8 @@ void GLFramebuffer::run()
 	clutter_timeline_set_repeat_count(tl, -1);
 	clutter_timeline_start(tl);
 	clutter_main();
+	g_object_unref(tl);
+	free(argv);
 	lt_info("GLFB: GL thread stopping\n");
 }
 
@@ -273,7 +275,7 @@ void GLFramebuffer::run()
 {
 	guint key = clutter_event_get_key_symbol (event);
 	int keystate = user_data ? 1 : 0;
-	lt_info_c("GLFB::%s: 0x%x, %d\n", __func__, key, keystate);
+	lt_debug_c("GLFB::%s: 0x%x, %d\n", __func__, key, keystate);
 
 	struct input_event ev;
 	if (key == 'f' && keystate)
@@ -303,6 +305,11 @@ void GLFbPC::render()
 		clutter_main_quit();
 
 	mReInitLock.lock();
+	if (vdec && vdec->pig_changed)
+	{
+		mReInit = true;
+		vdec->pig_changed = false;
+	}
 	if (mReInit)
 	{
 		int xoff = 0;
@@ -327,7 +334,6 @@ void GLFbPC::render()
 			__func__, *mX, *mY, xoff, yoff, mFullscreen);
 	}
 	mReInitLock.unlock();
-
 	bltDisplayBuffer(); /* decoded video stream */
 	if (mState.blit) {
 		/* only blit manually after fb->blit(), this helps to find missed blit() calls */
@@ -390,6 +396,18 @@ void GLFbPC::render()
 						break;
 				}
 				break;
+		}
+		if (vdec &&
+		    vdec->pig_x >= 0 && vdec->pig_y >= 0 &&
+		    vdec->pig_w > 0 && vdec->pig_h > 0) {
+			int ox = mState.width  - vdec->pig_w;
+			int oy = mState.height - vdec->pig_h;
+			float ppx = vdec->pig_x / (float) ox;
+			float ppy = vdec->pig_y / (float) oy;
+			zoom = zoom * (float)vdec->pig_w / mState.width;
+			clutter_actor_set_pivot_point(vid_actor, ppx, ppy);
+		} else {
+			clutter_actor_set_pivot_point(vid_actor, 0.5, 0.5);
 		}
 		lt_debug("zoom: %f xscale: %f xzoom: %f\n", zoom, xscale,xzoom);
 		clutter_actor_set_scale(vid_actor, xscale*zoom*xzoom, zoom);
