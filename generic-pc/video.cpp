@@ -598,10 +598,17 @@ void VDec::run(void)
 				f->height(c->height);
 				int64_t vpts = av_frame_get_best_effort_timestamp(frame);
 				/* a/v delay determined experimentally :-) */
+#if USE_OPENGL
 				if (v_format == VIDEO_FORMAT_MPEG2)
 					vpts += 90000*4/10; /* 400ms */
 				else
 					vpts += 90000*3/10; /* 300ms */
+#endif
+#if USE_CLUTTER
+				/* no idea why there's a difference between OpenGL and clutter rendering... */
+				if (v_format == VIDEO_FORMAT_MPEG2)
+					vpts += 90000*3/10; /* 300ms */
+#endif
 				f->pts(vpts);
 				AVRational a = av_guess_sample_aspect_ratio(avfc, avfc->streams[0], frame);
 				f->AR(a);
