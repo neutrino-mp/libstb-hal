@@ -420,7 +420,32 @@ void VDec::getPictureInfo(int &width, int &height, int &rate)
 {
 	width = dec_w;
 	height = dec_h;
-	rate = dec_r;
+	switch (dec_r) {
+		case 23://23.976fps
+			rate = VIDEO_FRAME_RATE_23_976;
+			break;
+		case 24:
+			rate = VIDEO_FRAME_RATE_24;
+			break;
+		case 25:
+			rate = VIDEO_FRAME_RATE_25;
+			break;
+		case 29://29,976fps
+			rate = VIDEO_FRAME_RATE_29_97;
+			break;
+		case 30:
+			rate = VIDEO_FRAME_RATE_30;
+			break;
+		case 50:
+			rate = VIDEO_FRAME_RATE_50;
+			break;
+		case 60:
+			rate = VIDEO_FRAME_RATE_60;
+			break;
+		default:
+			rate = dec_r;
+			break;
+	}
 }
 
 void cVideo::SetSyncMode(AVSYNC_TYPE)
@@ -678,6 +703,10 @@ static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int 
 	av_frame_free(&dframe);
 	sws_freeContext(scale);
 	return ret;
+}
+bool cVideo::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_video, bool get_osd, bool scale_to_video)
+{
+	return vdec->GetScreenImage(data, xres,yres,get_video,get_osd,scale_to_video);
 }
 
 bool VDec::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_video, bool get_osd, bool scale_to_video)
