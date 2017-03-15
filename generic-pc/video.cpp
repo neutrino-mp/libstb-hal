@@ -704,6 +704,10 @@ static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int 
 	sws_freeContext(scale);
 	return ret;
 }
+bool cVideo::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_video, bool get_osd, bool scale_to_video)
+{
+	return vdec->GetScreenImage(data, xres,yres,get_video,get_osd,scale_to_video);
+}
 
 bool VDec::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_video, bool get_osd, bool scale_to_video)
 {
