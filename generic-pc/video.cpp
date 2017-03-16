@@ -695,9 +695,11 @@ static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int 
 		lt_info_c("%s: could not alloc sframe (%p) or dframe (%p)\n", __func__, sframe, dframe);
 		goto out;
 	}
-	av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], AV_PIX_FMT_RGB32, sw, sh, 1);
-	av_image_fill_arrays(dframe->data, dframe->linesize, &(dst)[0], AV_PIX_FMT_RGB32, sw, sh, 1);
-	sws_scale(scale, sframe->data, sframe->linesize, 0, sh, dframe->data, dframe->linesize);
+	if (av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], AV_PIX_FMT_RGB32, sw, sh, 1) < 0) {
+		if (av_image_fill_arrays(dframe->data, dframe->linesize, &(dst)[0], AV_PIX_FMT_RGB32, sw, sh, 1) < 0) {
+			sws_scale(scale, sframe->data, sframe->linesize, 0, sh, dframe->data, dframe->linesize);
+		}
+	}
  out:
 	av_frame_free(&sframe);
 	av_frame_free(&dframe);
