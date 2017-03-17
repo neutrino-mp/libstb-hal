@@ -246,7 +246,9 @@ void ADec::getAudioInfo(int &type, int &layer, int &freq, int &bitrate, int &mod
 				break;
 			case AV_CODEC_ID_MLP:
 				type = AUDIO_FMT_MLP;
-			break;
+				break;
+			default:
+				break;
 		}
 		freq = c->sample_rate;
 		bitrate = c->bit_rate;
