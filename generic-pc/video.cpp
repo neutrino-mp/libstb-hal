@@ -682,28 +682,45 @@ void VDec::run(void)
 static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int dw, int dh)
 {
 	bool ret = false;
+	int len = 0;
 	struct SwsContext *scale = NULL;
-	AVFrame *sframe, *dframe;
 	scale = sws_getCachedContext(scale, sw, sh, AV_PIX_FMT_RGB32, dw, dh, AV_PIX_FMT_RGB32, SWS_BICUBIC, 0, 0, 0);
 	if (!scale) {
 		lt_info_c("%s: ERROR setting up SWS context\n", __func__);
-		return false;
+		return ret;
 	}
-	sframe = av_frame_alloc();
-	dframe = av_frame_alloc();
-	if (!sframe || !dframe) {
+	AVFrame *sframe = av_frame_alloc();
+	AVFrame *dframe = av_frame_alloc();
+	if (sframe && dframe) {
+		if(len = av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], AV_PIX_FMT_RGB32, sw, sh, 1)<0)
+			ret = false;
+
+		if(ret && (len = av_image_fill_arrays(dframe->data, dframe->linesize, &(dst)[0], AV_PIX_FMT_RGB32, dw, dh, 1)<0))
+			ret = false;
+
+		if(ret && (len = sws_scale(scale, sframe->data, sframe->linesize, 0, sh, dframe->data, dframe->linesize)<0))
+			ret = false;
+		else
+			ret = true;
+	}else{
 		lt_info_c("%s: could not alloc sframe (%p) or dframe (%p)\n", __func__, sframe, dframe);
-		goto out;
+		ret = false;
 	}
-	if (av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], AV_PIX_FMT_RGB32, sw, sh, 1) < 0) {
-		if (av_image_fill_arrays(dframe->data, dframe->linesize, &(dst)[0], AV_PIX_FMT_RGB32, sw, sh, 1) < 0) {
-			sws_scale(scale, sframe->data, sframe->linesize, 0, sh, dframe->data, dframe->linesize);
-		}
+
+	if(sframe){
+		av_frame_free(&sframe);
+		sframe = NULL;
 	}
- out:
-	av_frame_free(&sframe);
-	av_frame_free(&dframe);
-	sws_freeContext(scale);
+	if(dframe){
+		av_frame_free(&dframe);
+		dframe = NULL;
+	}
+	if(scale){
+		sws_freeContext(scale);
+		scale = NULL;
+	}
+	lt_info_c("%s: %s scale %ix%i to %ix%i ,len %i\n",ret?" ":"ERROR",__func__, sw, sh, dw, dh,len);
+
 	return ret;
 }
 bool cVideo::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_video, bool get_osd, bool scale_to_video)
@@ -746,16 +763,25 @@ bool VDec::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_
 		return false;
 
 	if (get_video) {
-		if (vid_w != xres || vid_h != yres) /* scale video into data... */
-			swscale(&video[0], data, vid_w, vid_h, xres, yres);
-		else /* get_video and no fancy scaling needed */
+		if (vid_w != xres || vid_h != yres){ /* scale video into data... */
+			bool ret = swscale(&video[0], data, vid_w, vid_h, xres, yres);
+			if(!ret){
+				free(data);
+				return false;
+			}
+		}else{ /* get_video and no fancy scaling needed */
 			memcpy(data, &video[0], xres * yres * sizeof(uint32_t));
+		}
 	}
 
 	if (get_osd && (osd_w != xres || osd_h != yres)) {
 		/* rescale osd */
 		s_osd.resize(need);
-		swscale(&(*osd)[0], &s_osd[0], osd_w, osd_h, xres, yres);
+		bool ret = swscale(&(*osd)[0], &s_osd[0], osd_w, osd_h, xres, yres);
+		if(!ret){
+			free(data);
+			return false;
+		}
 		osd = &s_osd;
 	}
 
