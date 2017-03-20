@@ -101,6 +101,7 @@ VDec::VDec()
 	display_aspect = DISPLAY_AR_16_9;
 	display_crop = DISPLAY_AR_MODE_LETTERBOX;
 	v_format = VIDEO_FORMAT_MPEG2;
+	output_h = 0;
 	stillpicture = false;
 }
 
@@ -131,7 +132,7 @@ int VDec::setAspectRatio(int vformat, int cropping)
 		display_aspect = (DISPLAY_AR) vformat;
 	if (cropping >= 0)
 		display_crop = (DISPLAY_AR_MODE) cropping;
-	if (display_aspect < DISPLAY_AR_RAW) /* don't know what to do with this */
+	if (display_aspect < DISPLAY_AR_RAW && output_h > 0) /* don't know what to do with this */
 		glfb_priv->setOutputFormat(aspect_ratios[display_aspect], output_h, display_crop);
 	return 0;
 }
@@ -250,7 +251,7 @@ int VDec::SetVideoSystem(int system)
 	}
 //	v_std = (VIDEO_STD) system;
 	output_h = h;
-	if (display_aspect < DISPLAY_AR_RAW) /* don't know what to do with this */
+	if (display_aspect < DISPLAY_AR_RAW && output_h > 0) /* don't know what to do with this */
 		glfb_priv->setOutputFormat(aspect_ratios[display_aspect], output_h, display_crop);
 	return 0;
 }
