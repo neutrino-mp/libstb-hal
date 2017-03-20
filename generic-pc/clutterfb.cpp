@@ -141,28 +141,28 @@ void GLFbPC::initKeys()
 	   Keep in sync with initKeys() in glfb.cpp
 	*/
 
-	mSpecialMap[CLUTTER_KEY_Up]    = KEY_UP;
-	mSpecialMap[CLUTTER_KEY_Down]  = KEY_DOWN;
-	mSpecialMap[CLUTTER_KEY_Left]  = KEY_LEFT;
-	mSpecialMap[CLUTTER_KEY_Right] = KEY_RIGHT;
+	mKeyMap[CLUTTER_KEY_Up]    = KEY_UP;
+	mKeyMap[CLUTTER_KEY_Down]  = KEY_DOWN;
+	mKeyMap[CLUTTER_KEY_Left]  = KEY_LEFT;
+	mKeyMap[CLUTTER_KEY_Right] = KEY_RIGHT;
 
-	mSpecialMap[CLUTTER_KEY_F1]  = KEY_RED;
-	mSpecialMap[CLUTTER_KEY_F2]  = KEY_GREEN;
-	mSpecialMap[CLUTTER_KEY_F3]  = KEY_YELLOW;
-	mSpecialMap[CLUTTER_KEY_F4]  = KEY_BLUE;
+	mKeyMap[CLUTTER_KEY_F1]  = KEY_RED;
+	mKeyMap[CLUTTER_KEY_F2]  = KEY_GREEN;
+	mKeyMap[CLUTTER_KEY_F3]  = KEY_YELLOW;
+	mKeyMap[CLUTTER_KEY_F4]  = KEY_BLUE;
 
-	mSpecialMap[CLUTTER_KEY_F5]  = KEY_RECORD;
-	mSpecialMap[CLUTTER_KEY_F6]  = KEY_PLAY;
-	mSpecialMap[CLUTTER_KEY_F7]  = KEY_PAUSE;
-	mSpecialMap[CLUTTER_KEY_F8]  = KEY_STOP;
+	mKeyMap[CLUTTER_KEY_F5]  = KEY_RECORD;
+	mKeyMap[CLUTTER_KEY_F6]  = KEY_PLAY;
+	mKeyMap[CLUTTER_KEY_F7]  = KEY_PAUSE;
+	mKeyMap[CLUTTER_KEY_F8]  = KEY_STOP;
 
-	mSpecialMap[CLUTTER_KEY_F9]  = KEY_FORWARD;
-	mSpecialMap[CLUTTER_KEY_F10] = KEY_REWIND;
-	mSpecialMap[CLUTTER_KEY_F11] = KEY_NEXT;
-	mSpecialMap[CLUTTER_KEY_F12] = KEY_PREVIOUS;
+	mKeyMap[CLUTTER_KEY_F9]  = KEY_FORWARD;
+	mKeyMap[CLUTTER_KEY_F10] = KEY_REWIND;
+	mKeyMap[CLUTTER_KEY_F11] = KEY_NEXT;
+	mKeyMap[CLUTTER_KEY_F12] = KEY_PREVIOUS;
 
-	mSpecialMap[CLUTTER_KEY_Page_Up]   = KEY_PAGEUP;
-	mSpecialMap[CLUTTER_KEY_Page_Down] = KEY_PAGEDOWN;
+	mKeyMap[CLUTTER_KEY_Page_Up]   = KEY_PAGEUP;
+	mKeyMap[CLUTTER_KEY_Page_Down] = KEY_PAGEDOWN;
 
 	mKeyMap[CLUTTER_KEY_Return] = KEY_OK;
 	mKeyMap[CLUTTER_KEY_Escape] = KEY_EXIT;
