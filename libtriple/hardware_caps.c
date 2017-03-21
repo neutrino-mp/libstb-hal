@@ -19,7 +19,6 @@ static hw_caps_t caps = {
 	.can_cec = 0,
 	.can_ar_14_9 = 0,
 	.can_ps_14_9 = 1,
-	.can_set_display_brightness = 0,
 	.force_tuner_2G = 0,
 	.display_type = HW_DISPLAY_GFX,
 	.display_xres = 128,
