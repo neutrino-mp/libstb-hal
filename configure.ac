@@ -21,8 +21,8 @@ AC_SYS_LARGEFILE
 AC_PROG_LIBTOOL
 
 AC_ARG_ENABLE(clutter,
-	AS_HELP_STRING(--enable-clutter, use clutter instead of OpenGL),
-	,[enable_clutter=no])
+	AS_HELP_STRING(--disable-clutter, use plain OpenGL (deprecated) instead of clutter),
+	,[enable_clutter=yes])
 
 AM_CONDITIONAL(USE_CLUTTER,test "$enable_clutter" = "yes")
 AM_CONDITIONAL(USE_OPENGL,test "$enable_clutter" = "no")
