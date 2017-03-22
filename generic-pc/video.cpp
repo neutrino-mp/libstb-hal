@@ -693,8 +693,9 @@ static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int 
 	AVFrame *sframe = av_frame_alloc();
 	AVFrame *dframe = av_frame_alloc();
 	if (sframe && dframe) {
-		if(len = av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], AV_PIX_FMT_RGB32, sw, sh, 1)<0)
-			ret = false;
+		len = av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], AV_PIX_FMT_RGB32, sw, sh, 1);
+		if(len>-1)
+			ret = true;
 
 		if(ret && (len = av_image_fill_arrays(dframe->data, dframe->linesize, &(dst)[0], AV_PIX_FMT_RGB32, dw, dh, 1)<0))
 			ret = false;
