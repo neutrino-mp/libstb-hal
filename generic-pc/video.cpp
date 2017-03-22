@@ -757,6 +757,11 @@ bool VDec::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_
 				xres = vid_w * a.num / a.den;
 		}
 	}
+	if(video.empty()){
+		get_video=false;
+		xres = osd_w;
+		yres = osd_h;
+	}
 	if (get_osd)
 		osd = glfb_priv->getOSDBuffer();
 	unsigned int need = av_image_get_buffer_size(AV_PIX_FMT_RGB32, xres, yres, 1);
@@ -775,7 +780,7 @@ bool VDec::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_
 			}
 #if USE_OPENGL //memcpy dont work with copy BGR24 to RGB32
 		}else{ /* get_video and no fancy scaling needed */
-			memcpy(data, &video[0], video.size());
+			memcpy(data, &video[0], xres * yres * sizeof(uint32_t));
 		}
 #endif
 	}
