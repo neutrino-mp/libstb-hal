@@ -680,12 +680,12 @@ void VDec::run(void)
 	lt_info("======================== end decoder thread ================================\n");
 }
 
-static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int dw, int dh)
+static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int dw, int dh, AVPixelFormat sfmt)
 {
 	bool ret = false;
 	int len = 0;
 	struct SwsContext *scale = NULL;
-	scale = sws_getCachedContext(scale, sw, sh, AV_PIX_FMT_RGB32, dw, dh, AV_PIX_FMT_RGB32, SWS_BICUBIC, 0, 0, 0);
+	scale = sws_getCachedContext(scale, sw, sh, sfmt, dw, dh, AV_PIX_FMT_RGB32, SWS_BICUBIC, 0, 0, 0);
 	if (!scale) {
 		lt_info_c("%s: ERROR setting up SWS context\n", __func__);
 		return ret;
@@ -693,7 +693,7 @@ static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int 
 	AVFrame *sframe = av_frame_alloc();
 	AVFrame *dframe = av_frame_alloc();
 	if (sframe && dframe) {
-		len = av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], AV_PIX_FMT_RGB32, sw, sh, 1);
+		len = av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], sfmt, sw, sh, 1);
 		if(len>-1)
 			ret = true;
 
@@ -765,21 +765,25 @@ bool VDec::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_
 		return false;
 
 	if (get_video) {
+#if USE_OPENGL //memcpy dont work with copy BGR24 to RGB32
 		if (vid_w != xres || vid_h != yres){ /* scale video into data... */
-			bool ret = swscale(&video[0], data, vid_w, vid_h, xres, yres);
+#endif
+			bool ret = swscale(&video[0], data, vid_w, vid_h, xres, yres,VDEC_PIXFMT);
 			if(!ret){
 				free(data);
 				return false;
 			}
+#if USE_OPENGL //memcpy dont work with copy BGR24 to RGB32
 		}else{ /* get_video and no fancy scaling needed */
-			memcpy(data, &video[0], xres * yres * sizeof(uint32_t));
+			memcpy(data, &video[0], video.size());
 		}
+#endif
 	}
 
 	if (get_osd && (osd_w != xres || osd_h != yres)) {
 		/* rescale osd */
 		s_osd.resize(need);
-		bool ret = swscale(&(*osd)[0], &s_osd[0], osd_w, osd_h, xres, yres);
+		bool ret = swscale(&(*osd)[0], &s_osd[0], osd_w, osd_h, xres, yres,AV_PIX_FMT_RGB32);
 		if(!ret){
 			free(data);
 			return false;
