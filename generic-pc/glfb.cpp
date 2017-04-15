@@ -152,7 +152,7 @@ void GLFbPC::initKeys()
 	mSpecialMap[GLUT_KEY_F5]  = KEY_RECORD;
 	mSpecialMap[GLUT_KEY_F6]  = KEY_PLAY;
 	mSpecialMap[GLUT_KEY_F7]  = KEY_PAUSE;
-	mSpecialMap[GLUT_KEY_F9]  = KEY_STOP;
+	mSpecialMap[GLUT_KEY_F8]  = KEY_STOP;
 
 	mSpecialMap[GLUT_KEY_F9]  = KEY_FORWARD;
 	mSpecialMap[GLUT_KEY_F10] = KEY_REWIND;
