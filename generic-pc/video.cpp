@@ -210,6 +210,23 @@ int cVideo::setBlank(int)
 	return 1;
 }
 
+int cVideo::GetVideoSystem()
+{
+	return vdec->GetVideoSystem();
+}
+
+int VDec::GetVideoSystem()
+{
+	int current_video_system = VIDEO_STD_1080I50;
+
+	if(dec_w < 720)
+		current_video_system = VIDEO_STD_PAL;
+	else if(dec_w > 720 && dec_w <= 1280)
+		current_video_system = VIDEO_STD_720P50;
+
+	return 0;
+}
+
 int cVideo::SetVideoSystem(int system, bool)
 {
 	return vdec->SetVideoSystem(system);
