@@ -72,6 +72,7 @@ class VDec : public OpenThreads::Thread
 		int getBlank(void);
 		int setBlank(int enable);
 #endif
+		int GetVideoSystem();
 		int SetVideoSystem(int system);
 
 		/* change video play state. Parameters are all unused. */

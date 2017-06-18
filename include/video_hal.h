@@ -180,6 +180,8 @@ class cVideo
 		int Stop(bool blank = true);
 		bool Pause(void);
 
+		int GetVideoSystem();
+
 		/* set video_system */
 		int SetVideoSystem(int video_system, bool remember = true);
 		int SetStreamType(VIDEO_FORMAT type);
