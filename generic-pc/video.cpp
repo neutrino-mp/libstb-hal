@@ -101,6 +101,7 @@ VDec::VDec()
 	display_aspect = DISPLAY_AR_16_9;
 	display_crop = DISPLAY_AR_MODE_LETTERBOX;
 	v_format = VIDEO_FORMAT_MPEG2;
+	output_h = 0;
 	stillpicture = false;
 }
 
@@ -131,7 +132,7 @@ int VDec::setAspectRatio(int vformat, int cropping)
 		display_aspect = (DISPLAY_AR) vformat;
 	if (cropping >= 0)
 		display_crop = (DISPLAY_AR_MODE) cropping;
-	if (display_aspect < DISPLAY_AR_RAW) /* don't know what to do with this */
+	if (display_aspect < DISPLAY_AR_RAW && output_h > 0) /* don't know what to do with this */
 		glfb_priv->setOutputFormat(aspect_ratios[display_aspect], output_h, display_crop);
 	return 0;
 }
@@ -210,6 +211,23 @@ int cVideo::setBlank(int)
 	return 1;
 }
 
+int cVideo::GetVideoSystem()
+{
+	return vdec->GetVideoSystem();
+}
+
+int VDec::GetVideoSystem()
+{
+	int current_video_system = VIDEO_STD_1080I50;
+
+	if(dec_w < 720)
+		current_video_system = VIDEO_STD_PAL;
+	else if(dec_w > 720 && dec_w <= 1280)
+		current_video_system = VIDEO_STD_720P50;
+
+	return current_video_system;
+}
+
 int cVideo::SetVideoSystem(int system, bool)
 {
 	return vdec->SetVideoSystem(system);
@@ -250,7 +268,7 @@ int VDec::SetVideoSystem(int system)
 	}
 //	v_std = (VIDEO_STD) system;
 	output_h = h;
-	if (display_aspect < DISPLAY_AR_RAW) /* don't know what to do with this */
+	if (display_aspect < DISPLAY_AR_RAW && output_h > 0) /* don't know what to do with this */
 		glfb_priv->setOutputFormat(aspect_ratios[display_aspect], output_h, display_crop);
 	return 0;
 }
@@ -679,29 +697,49 @@ void VDec::run(void)
 	lt_info("======================== end decoder thread ================================\n");
 }
 
-static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int dw, int dh)
+static bool swscale(unsigned char *src, unsigned char *dst, int sw, int sh, int dw, int dh, AVPixelFormat sfmt)
 {
 	bool ret = false;
+	int len = 0;
 	struct SwsContext *scale = NULL;
-	AVFrame *sframe, *dframe;
-	scale = sws_getCachedContext(scale, sw, sh, AV_PIX_FMT_RGB32, dw, dh, AV_PIX_FMT_RGB32, SWS_BICUBIC, 0, 0, 0);
+	scale = sws_getCachedContext(scale, sw, sh, sfmt, dw, dh, AV_PIX_FMT_RGB32, SWS_BICUBIC, 0, 0, 0);
 	if (!scale) {
 		lt_info_c("%s: ERROR setting up SWS context\n", __func__);
-		return false;
+		return ret;
 	}
-	sframe = av_frame_alloc();
-	dframe = av_frame_alloc();
-	if (!sframe || !dframe) {
+	AVFrame *sframe = av_frame_alloc();
+	AVFrame *dframe = av_frame_alloc();
+	if (sframe && dframe) {
+		len = av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], sfmt, sw, sh, 1);
+		if(len>-1)
+			ret = true;
+
+		if(ret && (len = av_image_fill_arrays(dframe->data, dframe->linesize, &(dst)[0], AV_PIX_FMT_RGB32, dw, dh, 1)<0))
+			ret = false;
+
+		if(ret && (len = sws_scale(scale, sframe->data, sframe->linesize, 0, sh, dframe->data, dframe->linesize)<0))
+			ret = false;
+		else
+			ret = true;
+	}else{
 		lt_info_c("%s: could not alloc sframe (%p) or dframe (%p)\n", __func__, sframe, dframe);
-		goto out;
+		ret = false;
 	}
-	av_image_fill_arrays(sframe->data, sframe->linesize, &(src)[0], AV_PIX_FMT_RGB32, sw, sh, 1);
-	av_image_fill_arrays(dframe->data, dframe->linesize, &(dst)[0], AV_PIX_FMT_RGB32, sw, sh, 1);
-	sws_scale(scale, sframe->data, sframe->linesize, 0, sh, dframe->data, dframe->linesize);
- out:
-	av_frame_free(&sframe);
-	av_frame_free(&dframe);
-	sws_freeContext(scale);
+
+	if(sframe){
+		av_frame_free(&sframe);
+		sframe = NULL;
+	}
+	if(dframe){
+		av_frame_free(&dframe);
+		dframe = NULL;
+	}
+	if(scale){
+		sws_freeContext(scale);
+		scale = NULL;
+	}
+	lt_info_c("%s: %s scale %ix%i to %ix%i ,len %i\n",ret?" ":"ERROR",__func__, sw, sh, dw, dh,len);
+
 	return ret;
 }
 bool cVideo::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_video, bool get_osd, bool scale_to_video)
@@ -736,6 +774,11 @@ bool VDec::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_
 				xres = vid_w * a.num / a.den;
 		}
 	}
+	if(video.empty()){
+		get_video=false;
+		xres = osd_w;
+		yres = osd_h;
+	}
 	if (get_osd)
 		osd = glfb_priv->getOSDBuffer();
 	unsigned int need = av_image_get_buffer_size(AV_PIX_FMT_RGB32, xres, yres, 1);
@@ -744,16 +787,29 @@ bool VDec::GetScreenImage(unsigned char * &data, int &xres, int &yres, bool get_
 		return false;
 
 	if (get_video) {
-		if (vid_w != xres || vid_h != yres) /* scale video into data... */
-			swscale(&video[0], data, vid_w, vid_h, xres, yres);
-		else /* get_video and no fancy scaling needed */
+#if USE_OPENGL //memcpy dont work with copy BGR24 to RGB32
+		if (vid_w != xres || vid_h != yres){ /* scale video into data... */
+#endif
+			bool ret = swscale(&video[0], data, vid_w, vid_h, xres, yres,VDEC_PIXFMT);
+			if(!ret){
+				free(data);
+				return false;
+			}
+#if USE_OPENGL //memcpy dont work with copy BGR24 to RGB32
+		}else{ /* get_video and no fancy scaling needed */
 			memcpy(data, &video[0], xres * yres * sizeof(uint32_t));
+		}
+#endif
 	}
 
 	if (get_osd && (osd_w != xres || osd_h != yres)) {
 		/* rescale osd */
 		s_osd.resize(need);
-		swscale(&(*osd)[0], &s_osd[0], osd_w, osd_h, xres, yres);
+		bool ret = swscale(&(*osd)[0], &s_osd[0], osd_w, osd_h, xres, yres,AV_PIX_FMT_RGB32);
+		if(!ret){
+			free(data);
+			return false;
+		}
 		osd = &s_osd;
 	}
 

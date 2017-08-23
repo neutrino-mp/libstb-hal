@@ -135,35 +135,35 @@ GLFbPC::~GLFbPC()
 
 void GLFbPC::initKeys()
 {
+	/*
+	   Keep in sync with initKeys() in clutterfb.cpp
+	*/
+
 	mSpecialMap[GLUT_KEY_UP]    = KEY_UP;
 	mSpecialMap[GLUT_KEY_DOWN]  = KEY_DOWN;
 	mSpecialMap[GLUT_KEY_LEFT]  = KEY_LEFT;
 	mSpecialMap[GLUT_KEY_RIGHT] = KEY_RIGHT;
 
-	mSpecialMap[GLUT_KEY_F1] = KEY_RED;
-	mSpecialMap[GLUT_KEY_F2] = KEY_GREEN;
-	mSpecialMap[GLUT_KEY_F3] = KEY_YELLOW;
-	mSpecialMap[GLUT_KEY_F4] = KEY_BLUE;
+	mSpecialMap[GLUT_KEY_F1]  = KEY_RED;
+	mSpecialMap[GLUT_KEY_F2]  = KEY_GREEN;
+	mSpecialMap[GLUT_KEY_F3]  = KEY_YELLOW;
+	mSpecialMap[GLUT_KEY_F4]  = KEY_BLUE;
 
-	mSpecialMap[GLUT_KEY_F5] = KEY_WWW;
-	mSpecialMap[GLUT_KEY_F6] = KEY_SUBTITLE;
-	mSpecialMap[GLUT_KEY_F7] = KEY_MOVE;
-	mSpecialMap[GLUT_KEY_F8] = KEY_SLEEP;
+	mSpecialMap[GLUT_KEY_F5]  = KEY_RECORD;
+	mSpecialMap[GLUT_KEY_F6]  = KEY_PLAY;
+	mSpecialMap[GLUT_KEY_F7]  = KEY_PAUSE;
+	mSpecialMap[GLUT_KEY_F8]  = KEY_STOP;
+
+	mSpecialMap[GLUT_KEY_F9]  = KEY_FORWARD;
+	mSpecialMap[GLUT_KEY_F10] = KEY_REWIND;
+	mSpecialMap[GLUT_KEY_F11] = KEY_NEXT;
+	mSpecialMap[GLUT_KEY_F12] = KEY_PREVIOUS;
 
 	mSpecialMap[GLUT_KEY_PAGE_UP]   = KEY_PAGEUP;
 	mSpecialMap[GLUT_KEY_PAGE_DOWN] = KEY_PAGEDOWN;
 
 	mKeyMap[0x0d] = KEY_OK;
 	mKeyMap[0x1b] = KEY_EXIT;
-	mKeyMap['e']  = KEY_EPG;
-	mKeyMap['i']  = KEY_INFO;
-	mKeyMap['m']  = KEY_MENU;
-
-	mKeyMap['+']  = KEY_VOLUMEUP;
-	mKeyMap['-']  = KEY_VOLUMEDOWN;
-	mKeyMap['.']  = KEY_MUTE;
-	mKeyMap['h']  = KEY_HELP;
-	mKeyMap['p']  = KEY_POWER;
 
 	mKeyMap['0']  = KEY_0;
 	mKeyMap['1']  = KEY_1;
@@ -175,6 +175,30 @@ void GLFbPC::initKeys()
 	mKeyMap['7']  = KEY_7;
 	mKeyMap['8']  = KEY_8;
 	mKeyMap['9']  = KEY_9;
+
+	mKeyMap['+']  = KEY_VOLUMEUP;
+	mKeyMap['-']  = KEY_VOLUMEDOWN;
+	mKeyMap['.']  = KEY_MUTE;
+	mKeyMap['a']  = KEY_AUDIO;
+	mKeyMap['e']  = KEY_EPG;
+	//     ['f']    is reserved to toggle fullscreen;
+	mKeyMap['g']  = KEY_GAMES;
+	mKeyMap['h']  = KEY_HELP;
+	mKeyMap['i']  = KEY_INFO;
+	mKeyMap['m']  = KEY_MENU;
+	mKeyMap['p']  = KEY_POWER;
+	mKeyMap['r']  = KEY_RADIO;
+	mKeyMap['s']  = KEY_SUBTITLE;
+	mKeyMap['t']  = KEY_TV;
+	mKeyMap['v']  = KEY_VIDEO;
+	mKeyMap['z']  = KEY_SLEEP;
+
+	/* shift keys */
+	mKeyMap['F']  = KEY_FAVORITES;
+	mKeyMap['M']  = KEY_MODE;
+	mKeyMap['S']  = KEY_SAT;
+	mKeyMap['T']  = KEY_TEXT;
+	mKeyMap['W']  = KEY_WWW;
 }
 
 void GLFramebuffer::run()
