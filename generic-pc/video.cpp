@@ -225,7 +225,7 @@ int VDec::GetVideoSystem()
 	else if(dec_w > 720 && dec_w <= 1280)
 		current_video_system = VIDEO_STD_720P50;
 
-	return 0;
+	return current_video_system;
 }
 
 int cVideo::SetVideoSystem(int system, bool)
