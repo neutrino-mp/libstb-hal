@@ -30,6 +30,7 @@ hw_caps_t *get_hwcaps(void)
 	caps.display_type = HW_DISPLAY_LINE_TEXT;
 	caps.has_HDMI = 1;
 	caps.display_xres = 8;
+	caps.force_tuner_2G = 1;
 	strcpy(caps.boxvendor, "AZBox");
 	const char *tmp;
 	char buf[64];
