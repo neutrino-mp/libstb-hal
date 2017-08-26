@@ -22,6 +22,11 @@
 #include <vector>
 #include <cs_types.h>
 
+typedef struct cs_vs_format_t
+{
+	char format[16];
+} cs_vs_format_struct_t;
+
 typedef enum {
 	ANALOG_SD_RGB_CINCH = 0x00,
 	ANALOG_SD_YPRPB_CINCH,
@@ -180,7 +185,10 @@ class cVideo
 		int Stop(bool blank = true);
 		bool Pause(void);
 
-		int GetVideoSystem();
+		/* get video system infos */
+		int GetVideoSystem(void);
+		/* when system = -1 then use current video system */
+		void GetVideoSystemFormatName(cs_vs_format_t* format, int system = -1);
 
 		/* set video_system */
 		int SetVideoSystem(int video_system, bool remember = true);
