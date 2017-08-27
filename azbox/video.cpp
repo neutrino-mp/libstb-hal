@@ -69,6 +69,24 @@ static pthread_mutex_t stillp_mutex = PTHREAD_MUTEX_INITIALIZER;
 /* prototype */
 static void show_iframe(int fd, unsigned char *iframe, size_t st_size);
 
+static const char *vid_modes[] = {
+	"480i",		// VIDEO_STD_NTSC
+	"576i",		// VIDEO_STD_SECAM
+	"576i",		// VIDEO_STD_PAL
+	"480p",		// VIDEO_STD_480P
+	"576p",		// VIDEO_STD_576P
+	"720p60",	// VIDEO_STD_720P60
+	"1080i60",	// VIDEO_STD_1080I60
+	"720p50",	// VIDEO_STD_720P50
+	"1080i50",	// VIDEO_STD_1080I50
+	"1080p30",	// VIDEO_STD_1080P30
+	"1080p24",	// VIDEO_STD_1080P24
+	"1080p25",	// VIDEO_STD_1080P25
+	"720p50",	// VIDEO_STD_AUTO -> not implemented
+	"1080p50",	// VIDEO_STD_1080P50 -> SPARK only
+	NULL
+};
+
 #define VIDEO_STREAMTYPE_MPEG2 0
 #define VIDEO_STREAMTYPE_MPEG4_H264 1
 #define VIDEO_STREAMTYPE_VC1 3
@@ -287,22 +305,6 @@ int cVideo::SetVideoSystem(int video_system, bool remember)
 {
 	lt_debug("%s(%d, %d)\n", __func__, video_system, remember);
 	char current[32];
-	static const char *modes[] = {
-		"480i",		// VIDEO_STD_NTSC
-		"576i",		// VIDEO_STD_SECAM
-		"576i",		// VIDEO_STD_PAL
-		"480p",		// VIDEO_STD_480P
-		"576p",		// VIDEO_STD_576P
-		"720p60",	// VIDEO_STD_720P60
-		"1080i60",	// VIDEO_STD_1080I60
-		"720p50",	// VIDEO_STD_720P50
-		"1080i50",	// VIDEO_STD_1080I50
-		"1080p30",	// VIDEO_STD_1080P30
-		"1080p24",	// VIDEO_STD_1080P24
-		"1080p25",	// VIDEO_STD_1080P25
-		"720p50",	// VIDEO_STD_AUTO -> not implemented
-		"1080p50"	// VIDEO_STD_1080P50 -> SPARK only
-	};
 
 	if (video_system > VIDEO_STD_MAX)
 	{
@@ -310,13 +312,13 @@ int cVideo::SetVideoSystem(int video_system, bool remember)
 		return -1;
 	}
 	int ret = proc_get("/proc/stb/video/videomode", current, 32);
-	if (strcmp(current,  modes[video_system]) == 0)
+	if (strcmp(current, vid_modes[video_system]) == 0)
 	{
 		lt_info("%s: video_system %d (%s) already set, skipping\n", __func__, video_system, current);
 		return 0;
 	}
-	lt_info("%s: old: '%s' new: '%s'\n", __func__, current, modes[video_system]);
-	ret = proc_put("/proc/stb/video/videomode", modes[video_system],strlen(modes[video_system]));
+	lt_info("%s: old: '%s' new: '%s'\n", __func__, current, vid_modes[video_system]);
+	ret = proc_put("/proc/stb/video/videomode", vid_modes[video_system],strlen(vid_modes[video_system]));
 
 	return ret;
 }
@@ -354,6 +356,30 @@ void cVideo::SetVideoMode(analog_mode_t mode)
 void cVideo::ShowPicture(const char * fname)
 {
 	vdec->ShowPicture(fname);
+}
+
+int cVideo::GetVideoSystem(void)
+{
+	char current[32];
+	proc_get("/proc/stb/video/videomode", current, 32);
+	for (int i = 0; vid_modes[i]; i++)
+	{
+		if (strcmp(current, vid_modes[i]) == 0)
+			return i;
+	}
+	lt_info("%s: could not find '%s' mode, returning VIDEO_STD_720P50\n", __func__, current);
+	return VIDEO_STD_720P50;
+}
+
+void cVideo::GetVideoSystemFormatName(cs_vs_format_t *format, int system)
+{
+	if (system == -1)
+		system = GetVideoSystem();
+	if (system < 0 || system > VIDEO_STD_1080P50) {
+		lt_info("%s: invalid system %d\n", __func__, system);
+		strcpy(format->format, "invalid");
+	} else
+		strcpy(format->format, vid_modes[system]);
 }
 
 void VDec::ShowPicture(const char * fname)
