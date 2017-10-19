@@ -441,6 +441,12 @@ int VDec::SetVideoSystem(int video_system, bool remember)
 	return fop(ioctl, MPEG_VID_SET_DISPFMT, tmp);
 }
 
+int cVideo::GetVideoSystem(void)
+{
+	/* dummy, to fix compilation */
+	return VIDEO_STD_PAL;
+}
+
 int cVideo::getPlayState(void)
 {
 	return _vdec->playstate;
